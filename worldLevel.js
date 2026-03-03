@@ -41,7 +41,16 @@ class WorldLevel {
     this.jumpV = levelJson.jumpV ?? -11.0;
 
     // Convert raw platform objects into Platform instances.
-    this.platforms = (levelJson.platforms || []).map((p) => new Platform(p));
+    // If a platform entry has an "npc" field, also create an NPC for it.
+    this.platforms = [];
+    this.npcs = [];
+    for (let pd of levelJson.platforms || []) {
+      let plat = new Platform(pd);
+      this.platforms.push(plat);
+      if (pd.npc) {
+        this.npcs.push(new NPC(pd.npc, plat));
+      }
+    }
 
     // Extract checkpoint heights (they are not platforms).
     this.checkpoints = (levelJson.checkpoints || []).map((c) => c.y);

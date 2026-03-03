@@ -32,7 +32,7 @@ let hearts = 4;
 
 // checkpoint / respawn tracking
 let activeCheckpointY = 0; // world Y of the current respawn point (0 = not yet set)
-let gameState = "playing"; // "playing", "gameover", "win", "complete"
+let gameState = "playing"; // "playing", "gameover", "win", "complete", "dialogue"
 
 // fall tracking
 let lastGroundY = 5800;
@@ -62,11 +62,28 @@ let activePopups = [];
 // Gets shorter as stress increases.
 let popupSpawnCooldown = 0;
 
+// NPC images — teammates: replace filenames with your actual image files.
+// If the file is missing the game falls back to a coloured circle placeholder.
+let npcGoodImg, npcBadImg;
+
+// The NPC whose dialogue is currently on screen (null when not in dialogue).
+let activeDialogue = null;
+
 function preload() {
   levelData = [];
   levelData[0] = loadJSON("level1.json");
   levelData[1] = loadJSON("level2.json");
   levelData[2] = loadJSON("level3.json");
+
+  // NPC images — error callback sets to null so the fallback shape is used
+  // if the file doesn't exist yet.
+  // Teammates: replace "npc_good.jpg" / "npc_bad.jpg" with your actual filenames.
+  npcGoodImg = loadImage("npc_good.jpg", null, () => {
+    npcGoodImg = null;
+  });
+  npcBadImg = loadImage("npc_bad.jpg", null, () => {
+    npcBadImg = null;
+  });
 }
 
 function setup() {
@@ -324,6 +341,20 @@ function draw() {
     // --- PHYSICS UPDATE ---
     player.update(world.platforms);
 
+    // --- NPC CHECK ---
+    // If the player just landed on a platform that has an untriggered NPC,
+    // freeze the game and show the dialogue box.
+    if (gameState === "playing" && player.onGround && world.npcs.length > 0) {
+      for (let npc of world.npcs) {
+        if (!npc.triggered && npc.isPlayerOn(player)) {
+          npc.triggered = true;
+          activeDialogue = npc;
+          gameState = "dialogue";
+          break;
+        }
+      }
+    }
+
     // --- WIN DETECTION ---
     const finishPlatform = world.platforms.find((p) => p.type === "finish");
     if (finishPlatform && player.onGround) {
@@ -357,6 +388,9 @@ function draw() {
   push();
   translate(0, -cameraY);
   world.drawWorld();
+  for (let npc of world.npcs) {
+    npc.draw(npcGoodImg, npcBadImg);
+  }
   player.draw(world.theme.blob);
   pop();
 
@@ -371,6 +405,7 @@ function draw() {
   if (gameState === "gameover") drawGameOver();
   if (gameState === "win") drawWinScreen();
   if (gameState === "complete") drawCompleteScreen();
+  if (gameState === "dialogue") drawDialogue();
 }
 
 function drawGameOver() {
@@ -433,6 +468,52 @@ function drawCompleteScreen() {
   pop();
 }
 
+function drawDialogue() {
+  if (!activeDialogue) return;
+  push();
+  resetMatrix();
+
+  // Dim the background
+  fill(0, 0, 0, 160);
+  noStroke();
+  rect(0, 0, width, height);
+
+  // Dialogue box
+  let bw = min(width * 0.5, 520);
+  let bh = 160;
+  let bx = width / 2 - bw / 2;
+  let by = height / 2 - bh / 2;
+  let isGood = activeDialogue.type === "good";
+
+  fill(isGood ? "#FFF8EC" : "#FFF0F0");
+  stroke(isGood ? "#C8A060" : "#C06060");
+  strokeWeight(2);
+  rect(bx, by, bw, bh, 12);
+
+  // Label
+  noStroke();
+  fill(isGood ? "#7A5010" : "#902020");
+  textSize(12);
+  textAlign(LEFT, TOP);
+  textStyle(BOLD);
+  text("Stranger", bx + 18, by + 14);
+  textStyle(NORMAL);
+
+  // Dialogue text
+  fill(40, 25, 20);
+  textSize(17);
+  textAlign(CENTER, CENTER);
+  text(activeDialogue.dialogue, width / 2, height / 2 - 6);
+
+  // Prompt
+  fill(150);
+  textSize(12);
+  textAlign(CENTER, BOTTOM);
+  text("Press ENTER to continue", width / 2, by + bh - 12);
+
+  pop();
+}
+
 function drawPopups() {
   if (activePopups.length === 0) return;
   push();
@@ -455,6 +536,18 @@ function keyPressed() {
   if (key === " " || key === "W" || key === "w" || keyCode === UP_ARROW) {
     player.jump();
   }
+  // Dismiss NPC dialogue — apply heart effect then resume
+  if (gameState === "dialogue" && keyCode === ENTER) {
+    if (activeDialogue.type === "good") {
+      hearts = min(hearts + 1, 4);
+    } else {
+      hearts = max(hearts - 1, 0);
+    }
+    activeDialogue = null;
+    gameState = hearts <= 0 ? "gameover" : "playing";
+    return;
+  }
+
   // Advance to next level
   if (gameState === "win" && keyCode === ENTER) {
     gameState = "playing";
