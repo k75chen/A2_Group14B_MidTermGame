@@ -30,6 +30,18 @@ let cameraY = 0;
 // Health/lives count.  Cascade starts with four hearts.
 let hearts = 4;
 
+// helper used to block win/complete logic until the player has been
+// physically below the finish platform at least once.  This prevents the
+// player from triggering a win immediately on level load (e.g. if the
+// spawn point overlaps the finish).  It also protects against rapid
+// level transitions carrying the previous level’s state forward.
+let hasBeenBelowFinish = false;
+
+// Additional guard: require the player to move upward at least a little
+// from the starting Y position before any win/complete logic can fire.
+// This catches cases where the spawn occurs on or above the finish line.
+let levelStarted = false;
+
 // checkpoint / respawn tracking
 let activeCheckpointY = 0; // world Y of the current respawn point (0 = not yet set)
 let gameState = "playing"; // "playing", "gameover", "win", "complete", "dialogue"
@@ -87,7 +99,7 @@ function preload() {
 }
 
 function setup() {
-  // Create a full-window canvas.  We’ll keep this size throughout the
+  // Create a full-window canvas.  We'll keep this size throughout the
   // session and adjust on resize events.
   createCanvas(windowWidth, windowHeight);
 
@@ -226,7 +238,11 @@ function draw() {
     let isInAir = !player.onGround;
 
     if (isMoving || isInAir) {
-      let climbProgress = map(player.y, 5800, 80, 0, 1);
+      // Use the current level's start Y and level height top (80) dynamically
+      // so stress scales correctly on every level.
+      let levelStartY = world.start.y;
+      let levelTopY = 80;
+      let climbProgress = map(player.y, levelStartY, levelTopY, 0, 1);
       climbProgress = constrain(climbProgress, 0, 1);
       stress += map(climbProgress, 0, 1, 0.05, 0.2);
     }
@@ -355,9 +371,36 @@ function draw() {
       }
     }
 
-    // --- WIN DETECTION ---
+    // --- TRACK PLAYER PROGRESSION ---
+    // mark the level as "started" once the player moves upward from the
+    // spawn position.  this prevents wins on the very first frame of a level
+    // load (we were seeing that on level 3 after transitioning from level 2).
+    if (!levelStarted && player.y < world.start.y - 1) {
+      levelStarted = true;
+    }
+
+    // --- UPDATE BELOW‑FINISH FLAG ---
+    // If the finish platform exists we mark that the player has been below
+    // it once the player's bottom edge crosses below the platform bottom
+    // plus a small tolerance.  After this flag is true we will allow the win
+    // check to succeed.  This guarantees the blob must actually climb from
+    // under the goal before being able to finish.
     const finishPlatform = world.platforms.find((p) => p.type === "finish");
-    if (finishPlatform && player.onGround) {
+    if (
+      finishPlatform &&
+      !hasBeenBelowFinish &&
+      player.y + player.r > finishPlatform.y + finishPlatform.h + 10
+    ) {
+      hasBeenBelowFinish = true;
+    }
+
+    // --- WIN DETECTION ---
+    if (
+      finishPlatform &&
+      player.onGround &&
+      hasBeenBelowFinish &&
+      levelStarted
+    ) {
       // Check if player is horizontally over the finish platform
       // and vertically sitting on top of it (within a small tolerance)
       let onFinish =
@@ -550,8 +593,9 @@ function keyPressed() {
 
   // Advance to next level
   if (gameState === "win" && keyCode === ENTER) {
+    // carry remaining hearts into the next level instead of refilling
+    // them.  The player should be punished for mistakes made earlier.
     gameState = "playing";
-    hearts = 4;
     loadLevel(levelIndex + 1);
   }
   // Restart from level 1 after game over
@@ -577,6 +621,15 @@ Load a level by index:
 function loadLevel(i) {
   levelIndex = i;
 
+  // always make sure we start each level in the playing state.  calling
+  // loadLevel directly (for testing) or after a win should behave the same.
+  gameState = "playing";
+
+  // reset win‑guards; the player hasn't climbed yet and certainly hasn't
+  // been below the finish on this new level.
+  hasBeenBelowFinish = false;
+  levelStarted = false;
+
   // Create the world object from the JSON level object.
   world = new WorldLevel(levelData[levelIndex]);
 
@@ -586,7 +639,7 @@ function loadLevel(i) {
   resizeCanvas(windowWidth, windowHeight);
 
   // Apply level settings + respawn, then position the camera initially so the
-  // player doesn’t pop the first frame.
+  // player doesn't pop the first frame.
   player.spawnFromLevel(world);
   // center player horizontally on load
   player.x = windowWidth / 2;
