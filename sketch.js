@@ -85,7 +85,7 @@ function preload() {
     for (let i = 1; i <= count; i++) {
       (function (k, idx, num) {
         popupImgs[k][idx] = loadImage(
-          "assets/" + k + "_popup_" + num + ".png",
+          "assets/images/" + k + "_popup_" + num + ".png",
           (img) => {
             popupImgs[k][idx] = img;
           },
@@ -99,7 +99,7 @@ function preload() {
 
   // Start screen images
   startButtonImg = loadImage(
-    "assets/start_button.png",
+    "assets/images/start_button.png",
     (img) => {
       startButtonImg = img;
     },
@@ -108,7 +108,7 @@ function preload() {
     },
   );
   reverieImg = loadImage(
-    "assets/reverie.png",
+    "assets/images/reverie.png",
     (img) => {
       reverieImg = img;
     },
@@ -117,7 +117,7 @@ function preload() {
     },
   );
   rulesImg = loadImage(
-    "assets/rules.jpg",
+    "assets/images/rules.jpg",
     (img) => {
       rulesImg = img;
     },
@@ -128,7 +128,7 @@ function preload() {
 
   // Background image
   bgImg = loadImage(
-    "assets/background.png",
+    "assets/images/background.png",
     (img) => {
       bgImg = img;
     },
@@ -139,35 +139,35 @@ function preload() {
 
   // Sounds
   sndJump = loadSound(
-    "assets/jump.mp3",
+    "assets/sounds/jump.mp3",
     () => {},
     () => {
       sndJump = null;
     },
   );
   sndBgMusic = loadSound(
-    "assets/level1_sound.mp3",
+    "assets/sounds/level1_sound.mp3",
     () => {},
     () => {
       sndBgMusic = null;
     },
   );
   sndGameover = loadSound(
-    "assets/gameover.mp3",
+    "assets/sounds/gameover.mp3",
     () => {},
     () => {
       sndGameover = null;
     },
   );
   sndRespawn = loadSound(
-    "assets/respawn.mp3",
+    "assets/sounds/respawn.mp3",
     () => {},
     () => {
       sndRespawn = null;
     },
   );
   sndPopup = loadSound(
-    "assets/popup.mp3",
+    "assets/sounds/popup.mp3",
     () => {},
     () => {
       sndPopup = null;
@@ -188,10 +188,10 @@ function setup() {
     (function (name) {
       cursorSprites[name] = null;
       const paths = [
-        "assets/cursor_" + name + ".PNG",
-        "assets/cursor_" + name + ".png",
-        "assets/Cursor_" + name + ".PNG",
-        "assets/Cursor_" + name + ".png",
+        "assets/images/cursor_" + name + ".PNG",
+        "assets/images/cursor_" + name + ".png",
+        "assets/images/Cursor_" + name + ".PNG",
+        "assets/images/Cursor_" + name + ".png",
       ];
       function tryNext(i) {
         if (i >= paths.length) return;
