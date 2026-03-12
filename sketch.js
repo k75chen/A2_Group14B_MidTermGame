@@ -550,7 +550,7 @@ function drawWinScreen() {
   textSize(52);
   text("YOU MADE IT", width / 2, height / 2 - 40);
   textSize(18);
-  text("hold yourself together a little longer", width / 2, height / 2 + 20);
+  text("Hold yourself together a little longer.", width / 2, height / 2 + 20);
   textSize(14);
   fill(100);
   text("Press ENTER to continue", width / 2, height / 2 + 65);

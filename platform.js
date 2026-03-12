@@ -246,8 +246,13 @@ class Platform {
     fill("#48A848");
     rect(this.x + 1, this.y + 1, fillW - 2, this.h - 2, 2);
 
-    // Animated diagonal stripes (clip to filled area)
+    // Animated diagonal stripes — clipped to filled area
+    drawingContext.save();
+    drawingContext.beginPath();
+    drawingContext.rect(this.x + 1, this.y + 1, fillW - 2, this.h - 2);
+    drawingContext.clip();
     fill(255, 255, 255, 50);
+    noStroke();
     let stripeW = 10;
     let step = 20;
     for (
@@ -262,6 +267,7 @@ class Platform {
       vertex(sx - this.h + 2, this.y + this.h - 1);
       endShape(CLOSE);
     }
+    drawingContext.restore();
 
     // "Loading…" label
     fill("#1A4A1A");
