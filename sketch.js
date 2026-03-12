@@ -3,87 +3,76 @@ Week 4 — Example 5: Example 5: Blob Platformer (JSON + Classes)
 Course: GBDA302
 Instructors: Dr. Karen Cochrane and David Han
 Date: Feb. 5, 2026
-
-This file orchestrates everything:
-- load JSON in preload()
-- create WorldLevel from JSON
-- create BlobPlayer
-- update + draw each frame
-- handle input events (jump, optional next level)
-
-This matches the structure of the original blob sketch from Week 2 but moves
-details into classes.
 */
 
-let levelData = []; // array of level definitions
+let levelData = [];
 let levelIndex = 0;
-let totalLevels = 3; // number of levels loaded
+let totalLevels = 3;
 
-let world; // WorldLevel instance (current level)
-let player; // BlobPlayer instance
+let world;
+let player;
 
-// cameraY tracks the vertical offset applied to the world so that the player
-// stays in the lower third of the screen as they climb upward.  We will
-// lerp it smoothly toward the target each frame.
 let cameraY = 0;
-
-// Health/lives count.  Cascade starts with four hearts.
 let hearts = 4;
-
-// helper used to block win/complete logic until the player has been
-// physically below the finish platform at least once.  This prevents the
-// player from triggering a win immediately on level load (e.g. if the
-// spawn point overlaps the finish).  It also protects against rapid
-// level transitions carrying the previous level’s state forward.
 let hasBeenBelowFinish = false;
-
-// Additional guard: require the player to move upward at least a little
-// from the starting Y position before any win/complete logic can fire.
-// This catches cases where the spawn occurs on or above the finish line.
 let levelStarted = false;
-
-// checkpoint / respawn tracking
-let activeCheckpointY = 0; // world Y of the current respawn point (0 = not yet set)
-let gameState = "playing"; // "playing", "gameover", "win", "complete", "dialogue"
-
-// Respawn flash: counts down from 90 (3 blinks × 30 frames each) after death
+let activeCheckpointY = 0;
+let gameState = "start"; // "start", "rules", "playing", "gameover", "win", "complete"
 let respawnFlashTimer = 0;
 let fallThreshold = 600;
+let lastGroundY = 0;
 
 // stress & popups
-let stress = 0; // 0-100, hidden from player
+let stress = 0;
 
-const level1Popups = [
-  "I hope I don't draw attention on the train",
-  "Act normal",
-  "Did I lock the door?",
-  "Don't forget to breathe normally",
-  "Keep it together",
-  "Why is this so hard?",
-  "Stop. Just stop.",
-  "Everyone can tell.",
-  "Breathe. Just breathe.",
-  "Not now. Please not now.",
+let popupImgs = { small: [], regular: [], tall: [], long: [] };
+
+const POPUP_SLOTS = [
+  // Level 1 cap: 6 popups (stress 0-30%, 1 per 5%)
+  { imgKey: "long", imgIndex: 0, xf: 0.58, yf: 0.8 },
+  { imgKey: "small", imgIndex: 0, xf: 0.1, yf: 0.12 },
+  { imgKey: "regular", imgIndex: 2, xf: 0.04, yf: 0.28 },
+  { imgKey: "tall", imgIndex: 0, xf: 0.5, yf: 0.08 },
+  { imgKey: "regular", imgIndex: 1, xf: 0.7, yf: 0.38 },
+  { imgKey: "small", imgIndex: 1, xf: 0.3, yf: 0.52 },
+  // Level 2 additional: slots 6-11
+  { imgKey: "regular", imgIndex: 2, xf: 0.72, yf: 0.55 },
+  { imgKey: "tall", imgIndex: 1, xf: 0.55, yf: 0.2 },
+  { imgKey: "long", imgIndex: 0, xf: 0.58, yf: 0.82 },
+  { imgKey: "small", imgIndex: 0, xf: 0.82, yf: 0.15 },
+  { imgKey: "tall", imgIndex: 2, xf: 0.1, yf: 0.6 },
+  { imgKey: "regular", imgIndex: 0, xf: 0.45, yf: 0.48 },
+  // Level 3 additional: slots 12-19
+  { imgKey: "small", imgIndex: 1, xf: 0.88, yf: 0.42 },
+  { imgKey: "tall", imgIndex: 0, xf: 0.25, yf: 0.1 },
+  { imgKey: "regular", imgIndex: 1, xf: 0.62, yf: 0.68 },
+  { imgKey: "small", imgIndex: 2, xf: 0.78, yf: 0.78 },
+  { imgKey: "long", imgIndex: 0, xf: 0.12, yf: 0.85 },
+  { imgKey: "tall", imgIndex: 1, xf: 0.5, yf: 0.05 },
+  { imgKey: "regular", imgIndex: 2, xf: 0.35, yf: 0.35 },
+  { imgKey: "small", imgIndex: 0, xf: 0.9, yf: 0.65 },
 ];
 
-// Each popup in this array is an object:
-// { text, x, y, size, alpha }
-let activePopups = [];
+// Each slot gets a scale value: 0 = hidden, animates to 1 = full size
+// Uses an ease-out so it pops in fast then settles
+let popupScales = new Array(POPUP_SLOTS.length).fill(0);
+let popupVelocities = new Array(POPUP_SLOTS.length).fill(0);
+let visibleSlotCount = 0;
 
-// How many frames between attempting to spawn a new popup.
-// Gets shorter as stress increases.
 let popupSpawnCooldown = 0;
 
-// NPC images — teammates: replace filenames with your actual image files.
-// If the file is missing the game falls back to a coloured circle placeholder.
-let npcGoodImg, npcBadImg;
-
-// Cursor sprites for the player character
-// Files: cursor_normal.png, cursor_fall.png, cursor_jumpl.png, cursor_jumpr.png
 let cursorSprites = { normal: null, fall: null, jumpl: null, jumpr: null };
 
-// The NPC whose dialogue is currently on screen (null when not in dialogue).
-let activeDialogue = null;
+// Background image
+let bgImg = null;
+
+// Start screen assets
+let startButtonImg = null;
+let rulesImg = null;
+let reverieImg = null;
+
+// Sound assets
+let sndJump, sndBgMusic, sndGameover, sndRespawn, sndPopup;
 
 function preload() {
   levelData = [];
@@ -91,56 +80,138 @@ function preload() {
   levelData[1] = loadJSON("level2.json");
   levelData[2] = loadJSON("level3.json");
 
-  // NPC images — error callback sets to null so the fallback shape is used
-  // if the file doesn't exist yet.
-  // Teammates: replace "npc_good.jpg" / "npc_bad.jpg" with your actual filenames.
-  npcGoodImg = loadImage("npc_good.jpg", null, () => {
-    npcGoodImg = null;
-  });
-  npcBadImg = loadImage("npc_bad.jpg", null, () => {
-    npcBadImg = null;
-  });
-
-  // Cursor sprite loading — graceful fallback to blob if files are missing
-  const spriteNames = ["normal", "fall", "jumpl", "jumpr"];
-  for (let s of spriteNames) {
-    (function (name) {
-      cursorSprites[name] = loadImage(
-        "assets/cursor_" + name + ".PNG",
-        null,
-        () => {
-          cursorSprites[name] = null;
-        },
-      );
-    })(s);
+  const popupTypes = { small: 3, regular: 3, tall: 3, long: 1 };
+  for (let [key, count] of Object.entries(popupTypes)) {
+    for (let i = 1; i <= count; i++) {
+      (function (k, idx, num) {
+        popupImgs[k][idx] = loadImage(
+          "assets/" + k + "_popup_" + num + ".png",
+          (img) => {
+            popupImgs[k][idx] = img;
+          },
+          () => {
+            popupImgs[k][idx] = null;
+          },
+        );
+      })(key, i - 1, i);
+    }
   }
+
+  // Start screen images
+  startButtonImg = loadImage(
+    "assets/start_button.png",
+    (img) => {
+      startButtonImg = img;
+    },
+    () => {
+      startButtonImg = null;
+    },
+  );
+  reverieImg = loadImage(
+    "assets/reverie.png",
+    (img) => {
+      reverieImg = img;
+    },
+    () => {
+      reverieImg = null;
+    },
+  );
+  rulesImg = loadImage(
+    "assets/rules.jpg",
+    (img) => {
+      rulesImg = img;
+    },
+    () => {
+      rulesImg = null;
+    },
+  );
+
+  // Background image
+  bgImg = loadImage(
+    "assets/background.png",
+    (img) => {
+      bgImg = img;
+    },
+    () => {
+      bgImg = null;
+    },
+  );
+
+  // Sounds
+  sndJump = loadSound(
+    "assets/jump.mp3",
+    () => {},
+    () => {
+      sndJump = null;
+    },
+  );
+  sndBgMusic = loadSound(
+    "assets/level1_sound.mp3",
+    () => {},
+    () => {
+      sndBgMusic = null;
+    },
+  );
+  sndGameover = loadSound(
+    "assets/gameover.mp3",
+    () => {},
+    () => {
+      sndGameover = null;
+    },
+  );
+  sndRespawn = loadSound(
+    "assets/respawn.mp3",
+    () => {},
+    () => {
+      sndRespawn = null;
+    },
+  );
+  sndPopup = loadSound(
+    "assets/popup.mp3",
+    () => {},
+    () => {
+      sndPopup = null;
+    },
+  );
 }
 
 function setup() {
-  // Create a full-window canvas.  We'll keep this size throughout the
-  // session and adjust on resize events.
   createCanvas(windowWidth, windowHeight);
-
-  // Create the player once (it will be respawned per level).
   player = new BlobPlayer();
-
-  // Load the first level.
-  loadLevel(0);
-
-  // Simple shared style setup.
   noStroke();
   textFont("sans-serif");
   textSize(14);
+
+  // Load cursor sprites after preload — nested loadImage breaks p5's preload counter
+  const spriteNames = ["normal", "fall", "jumpl", "jumpr"];
+  for (let s of spriteNames) {
+    (function (name) {
+      cursorSprites[name] = null;
+      const paths = [
+        "assets/cursor_" + name + ".PNG",
+        "assets/cursor_" + name + ".png",
+        "assets/Cursor_" + name + ".PNG",
+        "assets/Cursor_" + name + ".png",
+      ];
+      function tryNext(i) {
+        if (i >= paths.length) return;
+        loadImage(
+          paths[i],
+          (img) => {
+            cursorSprites[name] = img;
+          },
+          () => tryNext(i + 1),
+        );
+      }
+      tryNext(0);
+    })(s);
+  }
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
 }
 
-// Draw the top-left lives display.  `hearts` is the number of remaining
-// lives; total capacity is 4.  Filled hearts use #E8445A, empty use #D4C5B5.
-// Each heart is 32px tall and spaced 44px apart horizontally.  A thin dark
-// outline helps visibility.
 function drawHearts() {
   const total = 4;
   const size = 32;
@@ -148,17 +219,26 @@ function drawHearts() {
   const startX = 24;
   const startY = 28;
 
+  // Dark pill backdrop behind all hearts so they pop on any background
+  noStroke();
+  fill(0, 0, 0, 110);
+  let padX = 10,
+    padY = 8;
+  let pillW = total * spacing + padX * 2 - (spacing - size);
+  let pillH = size + padY * 2;
+  rect(startX - padX, startY - padY, pillW, pillH, pillH / 2);
+
   for (let i = 0; i < total; i++) {
     const cx = startX + i * spacing + size / 2;
     const cy = startY + size / 2;
     const filled = i < hearts;
     const s = size * 0.5;
 
-    // Drop shadow
+    // Stronger drop shadow
     noStroke();
-    fill(0, 0, 0, 30);
+    fill(0, 0, 0, 90);
     push();
-    translate(2, 3);
+    translate(3, 5);
     beginShape();
     vertex(cx, cy + s * 0.65);
     bezierVertex(
@@ -180,7 +260,6 @@ function drawHearts() {
     endShape(CLOSE);
     pop();
 
-    // Main heart body
     noStroke();
     fill(filled ? "#E8445A" : "#CDB8B8");
     beginShape();
@@ -203,7 +282,6 @@ function drawHearts() {
     );
     endShape(CLOSE);
 
-    // Dark outline
     stroke(filled ? "#B02040" : "#A89090");
     strokeWeight(1.5);
     noFill();
@@ -227,7 +305,6 @@ function drawHearts() {
     );
     endShape(CLOSE);
 
-    // Shine highlight (top left of heart)
     if (filled) {
       noStroke();
       fill(255, 255, 255, 70);
@@ -238,10 +315,7 @@ function drawHearts() {
 }
 
 function draw() {
-  if (gameState === "playing") {
-    // --- CHECKPOINT ACTIVATION (silent) ---
-    // Tracks how far the player has climbed so they can't respawn
-    // above progress they haven't earned.
+  if (gameState === "playing" && world) {
     for (let cy of world.checkpoints) {
       if (player.y < cy && cy < activeCheckpointY) {
         activeCheckpointY = cy;
@@ -249,91 +323,69 @@ function draw() {
     }
 
     // --- STRESS GAUGE ---
-    // Only increases when the player is actively moving or in the air.
-    // Standing still on a platform: no change.
-    // The higher the player has climbed, the faster stress builds.
     let isMoving = abs(player.vx) > 0.2;
     let isInAir = !player.onGround;
 
     if (isMoving || isInAir) {
-      // Use the current level's start Y and level height top (80) dynamically
-      // so stress scales correctly on every level.
       let levelStartY = world.start.y;
       let levelTopY = 80;
       let climbProgress = map(player.y, levelStartY, levelTopY, 0, 1);
       climbProgress = constrain(climbProgress, 0, 1);
-      stress += map(climbProgress, 0, 1, 0.05, 0.2);
+      stress += map(climbProgress, 0, 1, 0.006, 0.018);
     }
 
-    // Clamp stress
-    stress = constrain(stress, 0, 100);
+    let stressCap = levelIndex === 0 ? 30 : levelIndex === 1 ? 60 : 100;
+    stress = constrain(stress, 0, stressCap);
 
-    // --- POPUP SPAWNING ---
-    // Popups only spawn once stress hits 35.
-    // stress=35  → every 300 frames (slow, rare)
-    // stress=60  → every 100 frames (steady)
-    // stress=100 → every 15 frames (rapid, overwhelming)
-    let spawnInterval = floor(map(stress, 35, 100, 300, 15));
+    // --- POPUP SLOTS ---
+    let maxSlots = levelIndex === 0 ? 6 : levelIndex === 1 ? 12 : 20;
+    let targetVisible = constrain(floor(stress / 5), 0, maxSlots);
 
-    if (stress >= 35 && popupSpawnCooldown <= 0) {
-      // Safety ceiling to prevent performance issues
-      if (activePopups.length < 80) {
-        let tSize = map(stress, 35, 100, 12, 26);
-        activePopups.push({
-          text: random(level1Popups),
-          x: random(width * 0.08, width * 0.92),
-          y: random(height * 0.12, height * 0.9),
-          size: tSize,
-          alpha: 0, // fades in from 0
-        });
+    if (targetVisible > visibleSlotCount) {
+      let nextSlot = visibleSlotCount;
+      if (levelIndex === 2) {
+        let hidden = [];
+        for (let s = 0; s < maxSlots; s++) {
+          if (popupScales[s] === 0) hidden.push(s);
+        }
+        if (hidden.length > 0) nextSlot = hidden[floor(random(hidden.length))];
       }
-      popupSpawnCooldown = spawnInterval;
+      // Kick off pop animation — start at small scale
+      if (popupScales[nextSlot] === 0) popupScales[nextSlot] = 0.01;
+      visibleSlotCount++;
+      if (sndPopup) {
+        sndPopup.stop();
+        sndPopup.setVolume(0.5);
+        sndPopup.play();
+      }
     }
 
-    // Always count down cooldown
-    if (popupSpawnCooldown > 0) popupSpawnCooldown--;
-
-    // --- UPDATE ACTIVE POPUPS ---
-    // Popups only fade in; they never disappear.
-    for (let p of activePopups) {
-      if (p.alpha < 200) p.alpha += 6;
+    // Spring physics — overshoots slightly then settles for a subtle bounce
+    for (let s = 0; s < POPUP_SLOTS.length; s++) {
+      if (popupScales[s] <= 0) continue;
+      popupVelocities[s] += (1 - popupScales[s]) * 0.22; // stiffness
+      popupVelocities[s] *= 0.72; // damping (lower = more bounce)
+      popupScales[s] += popupVelocities[s];
     }
 
     // --- TRACK LAST GROUND POSITION ---
-    if (player.onGround) {
-      lastGroundY = player.y;
-    }
+    if (player.onGround) lastGroundY = player.y;
 
     // --- FALL DETECTION ---
     if (player.y > lastGroundY + fallThreshold) {
       hearts--;
-      // Losing a heart spikes stress significantly
-      stress = min(stress + 25, 100);
+      stress = min(stress + 3, stressCap);
       hearts = max(hearts, 0);
-      let fellFromY = lastGroundY; // save before overwriting
+      let fellFromY = lastGroundY;
       lastGroundY = activeCheckpointY;
 
-      // Reset all falling platforms so they exist again after respawn
-      for (let p of world.platforms) {
-        if (p.mechanic === "falling") {
-          p.falling = false;
-          p.fallTimer = 0;
-          p.removed = false;
-        }
-      }
-
-      // Find the closest solid platform to where the player fell from.
-      // "Solid" means: not a falling/error type, not the finish, not the huge ground floor.
-      // Also must not be above the active checkpoint (no rewarding falling with progress).
       let candidates = world.platforms.filter(
         (p) =>
           p.mechanic !== "falling" &&
           p.type !== "finish" &&
           p.type !== "default" &&
-          p.y <= activeCheckpointY, // at or above checkpoint = valid respawn zone
+          p.y <= activeCheckpointY,
       );
-
-      // If no candidates above checkpoint, widen to anything solid below it too
       if (candidates.length === 0) {
         candidates = world.platforms.filter(
           (p) =>
@@ -365,44 +417,31 @@ function draw() {
       player.vy = 0;
       lastGroundY = player.y;
       cameraY = player.y - height * 0.6;
-      respawnFlashTimer = 90; // 3 blinks over 90 frames
+      respawnFlashTimer = 90;
+      if (sndRespawn) {
+        sndRespawn.stop();
+        sndRespawn.setVolume(0.7);
+        sndRespawn.play();
+      }
 
       if (hearts <= 0) {
         gameState = "gameover";
+        if (sndBgMusic) sndBgMusic.stop();
+        if (sndGameover) {
+          sndGameover.stop();
+          sndGameover.setVolume(0.8);
+          sndGameover.play();
+        }
       }
     }
 
     // --- PHYSICS UPDATE ---
     player.update(world.platforms);
 
-    // --- NPC CHECK ---
-    // If the player just landed on a platform that has an untriggered NPC,
-    // freeze the game and show the dialogue box.
-    if (gameState === "playing" && player.onGround && world.npcs.length > 0) {
-      for (let npc of world.npcs) {
-        if (!npc.triggered && npc.isPlayerOn(player)) {
-          npc.triggered = true;
-          activeDialogue = npc;
-          gameState = "dialogue";
-          break;
-        }
-      }
-    }
-
     // --- TRACK PLAYER PROGRESSION ---
-    // mark the level as "started" once the player moves upward from the
-    // spawn position.  this prevents wins on the very first frame of a level
-    // load (we were seeing that on level 3 after transitioning from level 2).
-    if (!levelStarted && player.y < world.start.y - 1) {
-      levelStarted = true;
-    }
+    if (!levelStarted && player.y < world.start.y - 1) levelStarted = true;
 
-    // --- UPDATE BELOW‑FINISH FLAG ---
-    // If the finish platform exists we mark that the player has been below
-    // it once the player's bottom edge crosses below the platform bottom
-    // plus a small tolerance.  After this flag is true we will allow the win
-    // check to succeed.  This guarantees the blob must actually climb from
-    // under the goal before being able to finish.
+    // --- UPDATE BELOW-FINISH FLAG ---
     const finishPlatform = world.platforms.find((p) => p.type === "finish");
     if (
       finishPlatform &&
@@ -419,47 +458,47 @@ function draw() {
       hasBeenBelowFinish &&
       levelStarted
     ) {
-      // Check if player is horizontally over the finish platform
-      // and vertically sitting on top of it (within a small tolerance)
       let onFinish =
         player.x > finishPlatform.x &&
         player.x < finishPlatform.x + finishPlatform.w &&
         player.y + player.r >= finishPlatform.y - 2 &&
         player.y + player.r <= finishPlatform.y + finishPlatform.h + 10;
-
       if (onFinish) {
-        if (levelIndex >= totalLevels - 1) {
-          gameState = "complete";
-        } else {
-          gameState = "win";
-        }
+        gameState = levelIndex >= totalLevels - 1 ? "complete" : "win";
       }
     }
   }
 
+  // --- PRE-WORLD SCREENS (start/rules render before world exists) ---
+  if (gameState === "start") {
+    drawStartScreen();
+    return;
+  }
+  if (gameState === "rules") {
+    drawRulesScreen();
+    return;
+  }
+
   // --- CAMERA ---
+  if (!world) return;
   const target = player.y - height * 0.6;
   cameraY = lerp(cameraY, target, 0.1);
   cameraY = max(cameraY, 0);
-  if (world.height !== undefined) {
+  if (world.height !== undefined)
     cameraY = min(cameraY, max(world.height - height, 0));
-  }
 
   // --- DRAW WORLD ---
-  // Tick down the respawn flash timer
   if (respawnFlashTimer > 0) respawnFlashTimer--;
-
-  // Draw player — skip every other 15-frame window while flashing (3 blinks)
   let showPlayer =
     respawnFlashTimer === 0 || floor(respawnFlashTimer / 15) % 2 === 0;
+
+  // Clear canvas first so areas outside the bg image don't show stale frames
+  background(color(world.theme.bg));
 
   push();
   translate(0, -cameraY);
   world.updatePlatforms();
-  world.drawWorld();
-  for (let npc of world.npcs) {
-    npc.draw(npcGoodImg, npcBadImg);
-  }
+  world.drawWorld(bgImg);
   if (showPlayer) player.draw(world.theme.blob, cursorSprites);
   pop();
 
@@ -467,6 +506,7 @@ function draw() {
   push();
   resetMatrix();
   drawHearts();
+  drawStressDebug();
   drawPopups();
   pop();
 
@@ -474,22 +514,25 @@ function draw() {
   if (gameState === "gameover") drawGameOver();
   if (gameState === "win") drawWinScreen();
   if (gameState === "complete") drawCompleteScreen();
-  if (gameState === "dialogue") drawDialogue();
 }
 
 function drawGameOver() {
   push();
   resetMatrix();
-  fill(40, 20, 20, 210);
+  fill("#1138FE");
   rect(0, 0, width, height);
-  fill("#FFD0D0");
+  fill("#FFFFFF");
   noStroke();
   textAlign(CENTER, CENTER);
   textSize(52);
   text("GAME OVER", width / 2, height / 2 - 40);
   textSize(16);
-  fill(200, 160, 160);
-  text("you couldn't hold it together", width / 2, height / 2 + 10);
+  fill("#FFFFFF");
+  text(
+    "You couldn't hold it together. Now everyone knows.",
+    width / 2,
+    height / 2 + 10,
+  );
   textSize(14);
   text("Press R to try again", width / 2, height / 2 + 55);
   textAlign(LEFT);
@@ -537,100 +580,196 @@ function drawCompleteScreen() {
   pop();
 }
 
-function drawDialogue() {
-  if (!activeDialogue) return;
+function drawPopups() {
+  imageMode(CORNER);
+  for (let s = 0; s < POPUP_SLOTS.length; s++) {
+    let sc = popupScales[s];
+    if (sc <= 0) continue;
+    let slot = POPUP_SLOTS[s];
+    let img = popupImgs[slot.imgKey]
+      ? popupImgs[slot.imgKey][slot.imgIndex]
+      : null;
+    if (!img) continue;
+
+    let maxW =
+      slot.imgKey === "long"
+        ? width * 0.3
+        : slot.imgKey === "tall"
+          ? width * 0.18
+          : slot.imgKey === "small"
+            ? width * 0.14
+            : width * 0.22;
+    let baseScale = maxW / img.width;
+    let dw = img.width * baseScale * sc;
+    let dh = img.height * baseScale * sc;
+
+    // Anchor from top-left corner position, but keep the center fixed
+    // so the popup grows from its intended position rather than top-left
+    let cx = slot.xf * width + (img.width * baseScale) / 2;
+    let cy = slot.yf * height + (img.height * baseScale) / 2;
+
+    image(img, cx - dw / 2, cy - dh / 2, dw, dh);
+  }
+  imageMode(CORNER);
+}
+
+// TEMPORARY DEBUG: stress gauge top-right — remove when asked
+function drawStressDebug() {
+  push();
+  let stressCap = levelIndex === 0 ? 30 : levelIndex === 1 ? 60 : 100;
+  let barW = 180,
+    barH = 18;
+  let bx = width - barW - 20,
+    by = 16;
+
+  noStroke();
+  fill(0, 0, 0, 60);
+  rect(bx, by, barW, barH, 4);
+
+  let fillW = map(stress, 0, stressCap, 0, barW);
+  let col =
+    stress < stressCap * 0.5
+      ? color("#6EC97A")
+      : stress < stressCap * 0.85
+        ? color("#F0C040")
+        : color("#E05050");
+  fill(col);
+  rect(bx, by, fillW, barH, 4);
+
+  stroke(255, 255, 255, 120);
+  strokeWeight(1);
+  noFill();
+  rect(bx, by, barW, barH, 4);
+  noStroke();
+
+  fill(255);
+  textSize(11);
+  textAlign(RIGHT, TOP);
+  text(
+    "stress: " +
+      nf(stress, 1, 1) +
+      "% / " +
+      stressCap +
+      "%  |  popups: " +
+      visibleSlotCount,
+    width - 20,
+    by + barH + 4,
+  );
+  textAlign(LEFT);
+}
+
+function drawStartScreen() {
   push();
   resetMatrix();
-
-  // Dim the background
-  fill(0, 0, 0, 160);
+  background("#1138FE");
   noStroke();
-  rect(0, 0, width, height);
+  imageMode(CORNER);
 
-  // Dialogue box
-  let bw = min(width * 0.5, 520);
-  let bh = 160;
-  let bx = width / 2 - bw / 2;
-  let by = height / 2 - bh / 2;
-  let isGood = activeDialogue.type === "good";
+  // Sizes — reverie is now ~2x bigger, tight gap to button
+  let btnW = min(width * 0.38, 480);
+  let revW = min(width * 1.0, 1000); // doubled from 0.52
 
-  fill(isGood ? "#FFF8EC" : "#FFF0F0");
-  stroke(isGood ? "#C8A060" : "#C06060");
-  strokeWeight(2);
-  rect(bx, by, bw, bh, 12);
+  // Heights (preserve aspect ratios)
+  let btnH = startButtonImg
+    ? btnW * (startButtonImg.height / startButtonImg.width)
+    : btnW * 0.22;
+  let revH = reverieImg
+    ? revW * (reverieImg.height / reverieImg.width)
+    : revW * 0.25;
 
-  // Label
-  noStroke();
-  fill(isGood ? "#7A5010" : "#902020");
-  textSize(12);
-  textAlign(LEFT, TOP);
-  textStyle(BOLD);
-  text("Stranger", bx + 18, by + 14);
-  textStyle(NORMAL);
+  // Total stack height so we can center both together vertically
+  let gap = 32; // tight gap
+  let stackH = revH + gap + btnH;
+  let topY = height / 2 - stackH / 2;
 
-  // Dialogue text
-  fill(40, 25, 20);
-  textSize(17);
-  textAlign(CENTER, CENTER);
-  text(activeDialogue.dialogue, width / 2, height / 2 - 6);
+  // --- Reverie title ---
+  if (reverieImg) {
+    let rx = width / 2 - revW / 2;
+    image(reverieImg, rx, topY, revW, revH);
+  }
 
-  // Prompt
-  fill(150);
-  textSize(12);
-  textAlign(CENTER, BOTTOM);
-  text("Press ENTER to continue", width / 2, by + bh - 12);
+  // --- Start button (below reverie) ---
+  if (startButtonImg) {
+    let bx = width / 2 - btnW / 2;
+    let by = topY + revH + gap;
+    noTint();
+    blendMode(SCREEN);
+    image(startButtonImg, bx, by, btnW, btnH);
+    blendMode(BLEND);
+  }
 
+  textFont("sans-serif");
+  textAlign(LEFT);
   pop();
 }
 
-function drawPopups() {
-  if (activePopups.length === 0) return;
+function drawRulesScreen() {
   push();
   resetMatrix();
+  background("#1138FE");
   noStroke();
-  textStyle(ITALIC);
-  for (let p of activePopups) {
-    if (p.alpha <= 0) continue;
-    fill(60, 40, 40, p.alpha);
-    textSize(p.size);
-    textAlign(CENTER, CENTER);
-    text(p.text, p.x, p.y);
+  textAlign(CENTER, CENTER);
+
+  if (rulesImg) {
+    let maxW = min(width * 0.78, 720);
+    let maxH = height * 0.78;
+    let sc = min(maxW / rulesImg.width, maxH / rulesImg.height);
+    let rw = rulesImg.width * sc;
+    let rh = rulesImg.height * sc;
+    let rx = width / 2 - rw / 2; // horizontally centered
+    let promptH = 40;
+    let totalH = rh + promptH;
+    let ry = height / 2 - totalH / 2; // vertically centered with prompt
+    imageMode(CORNER);
+    noTint();
+    image(rulesImg, rx, ry, rw, rh);
+
+    // Prompt below image
+    fill(255);
+    textFont("monospace");
+    textSize(min(width * 0.018, 16));
+    text("press ENTER to start", width / 2, ry + rh + 40);
+  } else {
+    // Fallback if rules.png not found
+    fill(255);
+    textFont("monospace");
+    textSize(min(width * 0.018, 16));
+    text("press ENTER to start", width / 2, height / 2);
   }
-  textStyle(NORMAL);
+
+  textFont("sans-serif");
   textAlign(LEFT);
   pop();
 }
 
 function keyPressed() {
-  if (key === " " || key === "W" || key === "w" || keyCode === UP_ARROW) {
-    player.jump();
-  }
-  // Dismiss NPC dialogue — apply heart effect then resume
-  if (gameState === "dialogue" && keyCode === ENTER) {
-    if (activeDialogue.type === "good") {
-      hearts = min(hearts + 1, 4);
-    } else {
-      hearts = max(hearts - 1, 0);
-    }
-    activeDialogue = null;
-    gameState = hearts <= 0 ? "gameover" : "playing";
+  if (gameState === "start") return; // no keys on start screen
+  if (gameState === "rules" && keyCode === ENTER) {
+    loadLevel(0);
     return;
   }
 
-  // Advance to next level
+  if (
+    gameState === "playing" &&
+    (key === " " || key === "W" || key === "w" || keyCode === UP_ARROW)
+  ) {
+    player.jump();
+    if (sndJump) {
+      sndJump.stop();
+      sndJump.setVolume(0.6);
+      sndJump.play();
+    }
+  }
+
   if (gameState === "win" && keyCode === ENTER) {
-    // carry remaining hearts into the next level instead of refilling
-    // them.  The player should be punished for mistakes made earlier.
     gameState = "playing";
     loadLevel(levelIndex + 1);
   }
-  // Restart from level 1 after game over
   if (gameState === "gameover" && (key === "r" || key === "R")) {
     gameState = "playing";
     hearts = 4;
     loadLevel(0);
   }
-  // Restart from level 1 after full completion
   if (gameState === "complete" && (key === "r" || key === "R")) {
     gameState = "playing";
     hearts = 4;
@@ -638,45 +777,58 @@ function keyPressed() {
   }
 }
 
-/*
-Load a level by index:
-- create a WorldLevel instance from JSON
-- resize canvas based on inferred geometry
-- spawn player using level start + physics
-*/
+function mousePressed() {
+  if (gameState !== "start") return;
+  if (!startButtonImg) {
+    // fallback: any click advances
+    gameState = "rules";
+    return;
+  }
+  // Check if click lands on the start button image
+  let btnW = min(width * 0.38, 480);
+  let revW = min(width * 1.0, 1000);
+  let revH = reverieImg
+    ? revW * (reverieImg.height / reverieImg.width)
+    : revW * 0.25;
+  let btnH = btnW * (startButtonImg.height / startButtonImg.width);
+  let gap = 24;
+  let stackH = revH + gap + btnH;
+  let bx = width / 2 - btnW / 2;
+  let by = height / 2 - stackH / 2 + revH + gap;
+  if (
+    mouseX >= bx &&
+    mouseX <= bx + btnW &&
+    mouseY >= by &&
+    mouseY <= by + btnH
+  ) {
+    gameState = "rules";
+  }
+}
+
 function loadLevel(i) {
   levelIndex = i;
-
-  // always make sure we start each level in the playing state.  calling
-  // loadLevel directly (for testing) or after a win should behave the same.
   gameState = "playing";
-
-  // reset win‑guards; the player hasn't climbed yet and certainly hasn't
-  // been below the finish on this new level.
   hasBeenBelowFinish = false;
   levelStarted = false;
-
-  // Create the world object from the JSON level object.
   world = new WorldLevel(levelData[levelIndex]);
-
-  // For this version the canvas always fills the browser window.  The
-  // world width therefore matches windowWidth and platforms should be
-  // authored accordingly.  Simply resize to the current window size.
   resizeCanvas(windowWidth, windowHeight);
-
-  // Apply level settings + respawn, then position the camera initially so the
-  // player doesn't pop the first frame.
   player.spawnFromLevel(world);
-  // center player horizontally on load
   player.x = windowWidth / 2;
-  // initialize checkpoint/respawn state
-  activeCheckpointY = world.start.y; // default respawn is spawn point
+  activeCheckpointY = world.start.y;
   lastGroundY = world.start.y;
-  // reset stress/popup system
   stress = 0;
-  activePopups = [];
+  popupScales.fill(0);
+  popupVelocities.fill(0);
+  visibleSlotCount = 0;
   popupSpawnCooldown = 0;
   respawnFlashTimer = 0;
   cameraY = player.y - height * 0.6;
   if (cameraY < 0) cameraY = 0;
+
+  // Start background music looping quietly
+  if (sndBgMusic) {
+    sndBgMusic.stop();
+    sndBgMusic.setVolume(0.25);
+    sndBgMusic.loop();
+  }
 }

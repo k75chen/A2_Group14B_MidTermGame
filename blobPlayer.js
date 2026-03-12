@@ -1,13 +1,7 @@
 /*
 BlobPlayer.js
-
-BlobPlayer owns all "dynamic" player state.
-
-Sprite states:
-  cursor_normal.png  -> standing still or moving on ground
-  cursor_fall.png    -> falling (vy > 0 and not on ground)
-  cursor_jumpl.png   -> jumping leftward
-  cursor_jumpr.png   -> jumping rightward
+Handles player physics, collision, and cursor sprite rendering.
+Sprite states: normal, fall, jumpl, jumpr
 */
 
 class BlobPlayer {
@@ -35,23 +29,14 @@ class BlobPlayer {
 
     // "normal" | "fall" | "jumpl" | "jumpr"
     this.spriteState = "normal";
-
-    // Blob fallback animation
-    this.t = 0;
-    this.tSpeed = 0.01;
-    this.wobble = 7;
-    this.points = 48;
-    this.wobbleFreq = 0.9;
   }
 
   spawnFromLevel(level) {
     this.gravity = level.gravity;
     this.jumpV = level.jumpV;
-
     this.x = level.start.x;
     this.y = level.start.y;
     this.r = level.start.r;
-
     this.vx = 0;
     this.vy = 0;
     this.onGround = false;
@@ -60,6 +45,7 @@ class BlobPlayer {
   }
 
   update(platforms) {
+    // Horizontal input
     let move = 0;
     if (keyIsDown(65) || keyIsDown(LEFT_ARROW)) move -= 1;
     if (keyIsDown(68) || keyIsDown(RIGHT_ARROW)) move += 1;
@@ -107,18 +93,13 @@ class BlobPlayer {
           this.vy = 0;
           this.onGround = true;
 
-          if (s.mechanic === "slippery") {
-            this.platformFriction = 0.99;
-          } else if (s.mechanic === "slow") {
+          if (s.mechanic === "slippery") this.platformFriction = 0.99;
+          else if (s.mechanic === "slow") {
             this.platformFriction = 0.78;
             this.vx *= 0.9;
-          } else {
-            this.platformFriction = null;
-          }
+          } else this.platformFriction = null;
 
-          if (s.mechanic === "falling" && !s.falling) {
-            s.startFall();
-          }
+          if (s.mechanic === "falling" && !s.falling) s.startFall();
         } else if (this.vy < 0) {
           box.y = s.y + s.h;
           this.vy = 0;
@@ -130,18 +111,14 @@ class BlobPlayer {
     this.y = box.y + box.h / 2;
     this.x = constrain(this.x, this.r, width - this.r);
 
-    this.t += this.tSpeed;
     this._updateSpriteState();
   }
 
   _updateSpriteState() {
-    if (!this.onGround && this.vy > 0) {
-      this.spriteState = "fall";
-    } else if (!this.onGround && this.vy < 0) {
+    if (!this.onGround && this.vy > 0) this.spriteState = "fall";
+    else if (!this.onGround && this.vy < 0)
       this.spriteState = this.vx <= 0 ? "jumpl" : "jumpr";
-    } else {
-      this.spriteState = "normal";
-    }
+    else this.spriteState = "normal";
   }
 
   jump() {
@@ -152,6 +129,7 @@ class BlobPlayer {
   }
 
   // sprites: { normal, fall, jumpl, jumpr } — p5 image objects (may be null)
+  // Falls back to a simple circle so the player is always visible
   draw(colourHex, sprites) {
     let img = null;
     if (sprites) {
@@ -169,21 +147,10 @@ class BlobPlayer {
       image(img, this.x, this.y, size, size);
       imageMode(CORNER);
     } else {
-      // Fallback: original blob wobble
-      fill(color(colourHex));
+      // Fallback: plain circle so player is always visible if sprites fail
       noStroke();
-      beginShape();
-      for (let i = 0; i < this.points; i++) {
-        const a = (i / this.points) * TAU;
-        const n = noise(
-          cos(a) * this.wobbleFreq + 100,
-          sin(a) * this.wobbleFreq + 100,
-          this.t,
-        );
-        const rr = this.r + map(n, 0, 1, -this.wobble, this.wobble);
-        vertex(this.x + cos(a) * rr, this.y + sin(a) * rr);
-      }
-      endShape(CLOSE);
+      fill(color(colourHex));
+      circle(this.x, this.y, this.r * 2);
     }
   }
 }

@@ -55,7 +55,8 @@ const MECHANIC_MAP = {
   checkpoint: "checkpoint",
 };
 
-const SHAKE_FRAMES = 60; // 1 second at 60 fps
+const SHAKE_FRAMES = 60; // 1 second shake before falling
+const RESPAWN_FRAMES = 180; // 3 seconds before platform comes back
 
 class Platform {
   constructor({ x, y, w, h, type }) {
@@ -95,11 +96,22 @@ class Platform {
         this.removed = true;
       }
     }
+
+    // Respawn: count up while removed, reset after 3 seconds
+    if (this.removed) {
+      this.fallTimer++;
+      if (this.fallTimer >= SHAKE_FRAMES + RESPAWN_FRAMES) {
+        this.falling = false;
+        this.fallTimer = 0;
+        this.removed = false;
+      }
+    }
   }
 
   draw(fillColor) {
     if (this.type === "checkpoint") return;
     if (this.removed) return;
+    if (this.w >= 4000) return; // spawn floor is invisible
 
     noStroke();
 

@@ -99,8 +99,15 @@ class WorldLevel {
     }
   }
 
-  drawWorld() {
-    background(color(this.theme.bg));
+  drawWorld(bgImg) {
+    if (bgImg) {
+      // Draw bg at full level height, inside the camera transform so it scrolls naturally
+      let levelH = this.height || 6000;
+      imageMode(CORNER);
+      image(bgImg, 0, 0, width, levelH);
+    } else {
+      background(color(this.theme.bg));
+    }
     for (const p of this.platforms) {
       p.draw(color(this.theme.platform));
     }
