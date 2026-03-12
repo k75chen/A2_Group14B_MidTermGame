@@ -1,57 +1,42 @@
 /*
-BlobPlayer.js (Example 5)
+BlobPlayer.js
 
-BlobPlayer owns all "dynamic" player state:
-- position (x,y), radius (r)
-- velocity (vx,vy)
-- movement tuning (accel, friction, max run)
-- jump state (onGround)
-- blob rendering animation parameters (noise wobble)
+BlobPlayer owns all "dynamic" player state.
 
-It also implements:
-- update() for physics + collision against platforms
-- jump() for input
-- draw() for the "breathing blob" look
-
-The algorithm is the same as the original blob world example from Week 2: 
-- Apply input acceleration
-- Apply friction
-- Apply gravity
-- Compute an AABB (box) around the blob
-- Move box in X and resolve collisions
-- Move box in Y and resolve collisions
-- Write back box center to blob position
+Sprite states:
+  cursor_normal.png  -> standing still or moving on ground
+  cursor_fall.png    -> falling (vy > 0 and not on ground)
+  cursor_jumpl.png   -> jumping leftward
+  cursor_jumpr.png   -> jumping rightward
 */
 
 class BlobPlayer {
   constructor() {
-    // ----- Transform -----
     this.x = 0;
     this.y = 0;
     this.r = 26;
 
-    // ----- Velocity -----
     this.vx = 0;
     this.vy = 0;
 
-    // ----- Movement tuning (matches your original values) -----
-    this.accel = 0.55;
-    this.maxRun = 4.0;
+    this.accel = 0.8;
+    this.maxRun = 7.0;
 
-    // Physics values that are typically overridden per level.
-    this.gravity = 0.65;
-    this.jumpV = -11.0;
+    this.gravity = 0.45;
+    this.jumpV = -14.0;
 
-    // State used by jumping + friction choice.
     this.onGround = false;
 
-    // Friction:
-    // - in air: almost no friction (keeps momentum)
-    // - on ground: more friction (stops more quickly)
     this.frictionAir = 0.995;
     this.frictionGround = 0.88;
 
-    // ----- Blob rendering / animation -----
+    // Per-platform friction override (set during collision each frame)
+    this.platformFriction = null;
+
+    // "normal" | "fall" | "jumpl" | "jumpr"
+    this.spriteState = "normal";
+
+    // Blob fallback animation
     this.t = 0;
     this.tSpeed = 0.01;
     this.wobble = 7;
@@ -59,10 +44,6 @@ class BlobPlayer {
     this.wobbleFreq = 0.9;
   }
 
-  /*
-  Apply level settings + spawn the player.
-  We reset velocities so each level starts consistently. 
-  */
   spawnFromLevel(level) {
     this.gravity = level.gravity;
     this.jumpV = level.jumpV;
@@ -74,33 +55,27 @@ class BlobPlayer {
     this.vx = 0;
     this.vy = 0;
     this.onGround = false;
+    this.spriteState = "normal";
+    this.platformFriction = null;
   }
 
-  /*
-  Update movement + resolve collisions against all platforms.
-
-  Input is polled with keyIsDown to get smooth movement (held keys).
-  This keeps the behavior aligned with your original blob example. 
-  */
   update(platforms) {
-    // 1) Horizontal input (A/D or arrows)
     let move = 0;
     if (keyIsDown(65) || keyIsDown(LEFT_ARROW)) move -= 1;
     if (keyIsDown(68) || keyIsDown(RIGHT_ARROW)) move += 1;
 
-    // 2) Apply horizontal acceleration based on input
     this.vx += this.accel * move;
 
-    // 3) Apply friction (ground vs air)
-    this.vx *= this.onGround ? this.frictionGround : this.frictionAir;
+    let groundFric =
+      this.platformFriction !== null
+        ? this.platformFriction
+        : this.frictionGround;
 
-    // 4) Clamp max run speed
+    this.vx *= this.onGround ? groundFric : this.frictionAir;
     this.vx = constrain(this.vx, -this.maxRun, this.maxRun);
 
-    // 5) Apply gravity every frame
     this.vy += this.gravity;
 
-    // 6) Build an AABB around the blob (center/radius -> box)
     let box = {
       x: this.x - this.r,
       y: this.y - this.r,
@@ -108,105 +83,111 @@ class BlobPlayer {
       h: this.r * 2,
     };
 
-    // 7) Move in X and resolve collisions
+    // Move X
     box.x += this.vx;
-
     for (const s of platforms) {
+      if (s.removed) continue;
       if (overlapAABB(box, s)) {
-        // If moving right, snap to the left side of the platform.
         if (this.vx > 0) box.x = s.x - box.w;
-        // If moving left, snap to the right side of the platform.
         else if (this.vx < 0) box.x = s.x + s.w;
-
-        // Cancel horizontal velocity after collision.
         this.vx = 0;
       }
     }
 
-    // 8) Move in Y and resolve collisions
+    // Move Y
     box.y += this.vy;
-
-    // Reset and recompute onGround each frame during Y resolution.
     this.onGround = false;
+    this.platformFriction = null;
 
     for (const s of platforms) {
+      if (s.removed) continue;
       if (overlapAABB(box, s)) {
         if (this.vy > 0) {
-          // Falling: snap to platform top
           box.y = s.y - box.h;
           this.vy = 0;
           this.onGround = true;
+
+          if (s.mechanic === "slippery") {
+            this.platformFriction = 0.99;
+          } else if (s.mechanic === "slow") {
+            this.platformFriction = 0.78;
+            this.vx *= 0.9;
+          } else {
+            this.platformFriction = null;
+          }
+
+          if (s.mechanic === "falling" && !s.falling) {
+            s.startFall();
+          }
         } else if (this.vy < 0) {
-          // Rising: snap to platform bottom (head bump)
           box.y = s.y + s.h;
           this.vy = 0;
         }
       }
     }
 
-    // 9) Write back blob center from box position
     this.x = box.x + box.w / 2;
     this.y = box.y + box.h / 2;
-
-    // 10) Keep player within horizontal canvas bounds.  Vertical movement is
-    // entirely in world space; we don't clamp y here (the camera handles
-    // what is visible).
     this.x = constrain(this.x, this.r, width - this.r);
 
-    // 11) Advance blob animation time
     this.t += this.tSpeed;
+    this._updateSpriteState();
   }
 
-  //Jump: only possible when on ground.
+  _updateSpriteState() {
+    if (!this.onGround && this.vy > 0) {
+      this.spriteState = "fall";
+    } else if (!this.onGround && this.vy < 0) {
+      this.spriteState = this.vx <= 0 ? "jumpl" : "jumpr";
+    } else {
+      this.spriteState = "normal";
+    }
+  }
+
   jump() {
     if (!this.onGround) return;
     this.vy = this.jumpV;
     this.onGround = false;
+    this.spriteState = this.vx < 0 ? "jumpl" : "jumpr";
   }
 
-  /*
-  Draw the blob with a wobbly outline:
-  - we sample a noise value around the circle
-  - perturb the radius slightly per vertex
-  - this creates an organic “breathing” look
-
-  This is the same technique as the original drawBlob() function. 
-  */
-  draw(colourHex) {
-    fill(color(colourHex));
-    beginShape();
-
-    for (let i = 0; i < this.points; i++) {
-      const a = (i / this.points) * TAU;
-
-      // Noise input: circle coordinates + time.
-      const n = noise(
-        cos(a) * this.wobbleFreq + 100,
-        sin(a) * this.wobbleFreq + 100,
-        this.t,
-      );
-
-      // Map noise to a small radius offset.
-      const rr = this.r + map(n, 0, 1, -this.wobble, this.wobble);
-
-      // Place the vertex around the center.
-      vertex(this.x + cos(a) * rr, this.y + sin(a) * rr);
+  // sprites: { normal, fall, jumpl, jumpr } — p5 image objects (may be null)
+  draw(colourHex, sprites) {
+    let img = null;
+    if (sprites) {
+      if (this.spriteState === "fall") img = sprites.fall;
+      else if (this.spriteState === "jumpl") img = sprites.jumpl;
+      else if (this.spriteState === "jumpr") img = sprites.jumpr;
+      else img = sprites.normal;
     }
 
-    endShape(CLOSE);
+    const size = this.r * 2.5;
+
+    if (img) {
+      imageMode(CENTER);
+      noTint();
+      image(img, this.x, this.y, size, size);
+      imageMode(CORNER);
+    } else {
+      // Fallback: original blob wobble
+      fill(color(colourHex));
+      noStroke();
+      beginShape();
+      for (let i = 0; i < this.points; i++) {
+        const a = (i / this.points) * TAU;
+        const n = noise(
+          cos(a) * this.wobbleFreq + 100,
+          sin(a) * this.wobbleFreq + 100,
+          this.t,
+        );
+        const rr = this.r + map(n, 0, 1, -this.wobble, this.wobble);
+        vertex(this.x + cos(a) * rr, this.y + sin(a) * rr);
+      }
+      endShape(CLOSE);
+    }
   }
 }
 
-/*
-Collision function: AABB overlap test.
-- a is the moving player "box"
-- b is a platform rectangle
-
-We accept b as either:
-- a Platform instance (with x,y,w,h)
-- or a plain object with x,y,w,h
-This keeps it flexible. 
-*/
 function overlapAABB(a, b) {
   return (
     a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y

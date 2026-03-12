@@ -92,6 +92,13 @@ class WorldLevel {
   Draw only the world (background + platforms).
   The player draws itself separately, after the world is drawn.
   */
+  // Update platform state each frame (handles falling timers, stripe animation)
+  updatePlatforms() {
+    for (const p of this.platforms) {
+      if (p.update) p.update();
+    }
+  }
+
   drawWorld() {
     background(color(this.theme.bg));
     for (const p of this.platforms) {

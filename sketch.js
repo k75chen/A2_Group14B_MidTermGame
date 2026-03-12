@@ -46,8 +46,8 @@ let levelStarted = false;
 let activeCheckpointY = 0; // world Y of the current respawn point (0 = not yet set)
 let gameState = "playing"; // "playing", "gameover", "win", "complete", "dialogue"
 
-// fall tracking
-let lastGroundY = 5800;
+// Respawn flash: counts down from 90 (3 blinks × 30 frames each) after death
+let respawnFlashTimer = 0;
 let fallThreshold = 600;
 
 // stress & popups
@@ -78,6 +78,10 @@ let popupSpawnCooldown = 0;
 // If the file is missing the game falls back to a coloured circle placeholder.
 let npcGoodImg, npcBadImg;
 
+// Cursor sprites for the player character
+// Files: cursor_normal.png, cursor_fall.png, cursor_jumpl.png, cursor_jumpr.png
+let cursorSprites = { normal: null, fall: null, jumpl: null, jumpr: null };
+
 // The NPC whose dialogue is currently on screen (null when not in dialogue).
 let activeDialogue = null;
 
@@ -96,6 +100,20 @@ function preload() {
   npcBadImg = loadImage("npc_bad.jpg", null, () => {
     npcBadImg = null;
   });
+
+  // Cursor sprite loading — graceful fallback to blob if files are missing
+  const spriteNames = ["normal", "fall", "jumpl", "jumpr"];
+  for (let s of spriteNames) {
+    (function (name) {
+      cursorSprites[name] = loadImage(
+        "assets/cursor_" + name + ".PNG",
+        null,
+        () => {
+          cursorSprites[name] = null;
+        },
+      );
+    })(s);
+  }
 }
 
 function setup() {
@@ -295,59 +313,59 @@ function draw() {
       let fellFromY = lastGroundY; // save before overwriting
       lastGroundY = activeCheckpointY;
 
-      // Find which platform the player fell from (closest to fellFromY)
-      let allPlatforms = world.platforms.filter(
-        (p) => p.type !== "finish" && p.type !== "default",
+      // Reset all falling platforms so they exist again after respawn
+      for (let p of world.platforms) {
+        if (p.mechanic === "falling") {
+          p.falling = false;
+          p.fallTimer = 0;
+          p.removed = false;
+        }
+      }
+
+      // Find the closest solid platform to where the player fell from.
+      // "Solid" means: not a falling/error type, not the finish, not the huge ground floor.
+      // Also must not be above the active checkpoint (no rewarding falling with progress).
+      let candidates = world.platforms.filter(
+        (p) =>
+          p.mechanic !== "falling" &&
+          p.type !== "finish" &&
+          p.type !== "default" &&
+          p.y <= activeCheckpointY, // at or above checkpoint = valid respawn zone
       );
 
-      // Sort all platforms by Y ascending (top of level first, y=0 is top)
-      allPlatforms.sort((a, b) => a.y - b.y);
+      // If no candidates above checkpoint, widen to anything solid below it too
+      if (candidates.length === 0) {
+        candidates = world.platforms.filter(
+          (p) =>
+            p.mechanic !== "falling" &&
+            p.type !== "finish" &&
+            p.type !== "default",
+        );
+      }
 
-      // Find the index of the platform closest to where player last stood
-      let fellFromIndex = 0;
-      let closestDist = Infinity;
-      for (let i = 0; i < allPlatforms.length; i++) {
-        let dist = abs(allPlatforms[i].y - fellFromY);
-        if (dist < closestDist) {
-          closestDist = dist;
-          fellFromIndex = i;
+      let bestPlatform = null;
+      let bestDist = Infinity;
+      for (let p of candidates) {
+        let dist = abs(p.y - fellFromY);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestPlatform = p;
         }
       }
 
-      // Step back 4 platforms DOWN from where they fell
-      // (higher index = lower in level = larger y value)
-      // But never go below the ground platform
-      let respawnIndex = min(fellFromIndex + 4, allPlatforms.length - 1);
-
-      // Clamp to valid array range — no unbounded loop
-      respawnIndex = constrain(respawnIndex, 0, allPlatforms.length - 1);
-      // If that platform is above the active checkpoint, find the
-      // first platform at or below activeCheckpointY instead
-      if (allPlatforms[respawnIndex].y < activeCheckpointY) {
-        for (let i = 0; i < allPlatforms.length; i++) {
-          if (allPlatforms[i].y >= activeCheckpointY) {
-            respawnIndex = i;
-            break;
-          }
-        }
-        respawnIndex = constrain(respawnIndex, 0, allPlatforms.length - 1);
-      }
-
-      let bestPlatform = allPlatforms[respawnIndex];
-
-      // Land player on top of that platform
       if (bestPlatform) {
         player.x = bestPlatform.x + bestPlatform.w / 2;
         player.y = bestPlatform.y - player.r - 1;
       } else {
         player.x = windowWidth / 2;
-        player.y = activeCheckpointY - 80;
+        player.y = activeCheckpointY - player.r - 1;
       }
 
       player.vx = 0;
       player.vy = 0;
       lastGroundY = player.y;
       cameraY = player.y - height * 0.6;
+      respawnFlashTimer = 90; // 3 blinks over 90 frames
 
       if (hearts <= 0) {
         gameState = "gameover";
@@ -428,13 +446,21 @@ function draw() {
   }
 
   // --- DRAW WORLD ---
+  // Tick down the respawn flash timer
+  if (respawnFlashTimer > 0) respawnFlashTimer--;
+
+  // Draw player — skip every other 15-frame window while flashing (3 blinks)
+  let showPlayer =
+    respawnFlashTimer === 0 || floor(respawnFlashTimer / 15) % 2 === 0;
+
   push();
   translate(0, -cameraY);
+  world.updatePlatforms();
   world.drawWorld();
   for (let npc of world.npcs) {
     npc.draw(npcGoodImg, npcBadImg);
   }
-  player.draw(world.theme.blob);
+  if (showPlayer) player.draw(world.theme.blob, cursorSprites);
   pop();
 
   // --- HUD ---
@@ -650,6 +676,7 @@ function loadLevel(i) {
   stress = 0;
   activePopups = [];
   popupSpawnCooldown = 0;
+  respawnFlashTimer = 0;
   cameraY = player.y - height * 0.6;
   if (cameraY < 0) cameraY = 0;
 }
