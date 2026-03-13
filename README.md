@@ -69,13 +69,35 @@ After the showcase, we identified several areas to improve next:
 
 ### a. ACM Reference List
 
+alka5051. 2026. Pixel Art UI Elements Images – Browse 37,070 Stock Photos, Vectors, and Video. Adobe Stock. Retrieved March 12, 2026 from https://stock.adobe.com/ca/search?k=pixel%252Bart%252Bui%252Belements&asset_id=1736761996
+
+Breef_UA. 2026. Field with Green Grass in the Style of Windows XP Timel. Adobe Stock. Retrieved March 12, 2026 from https://stock.adobe.com/ca/images/field-with-green-grass-in-the-style-of-windows-xp-timel/1040514685
+
 Bullybilldestroyer (Freesound). 2022. 8-bit heaven. Pixabay. Retrieved March 12, 2026 from https://pixabay.com/sound-effects/musical-8-bit-heaven-26287/
+
+Creative. 2026. Sky Images – Browse 96,143,006 Stock Photos, Vectors, and Video. Adobe Stock. Retrieved March 12, 2026 from https://stock.adobe.com/ca/search?k=sky&asset_id=316365913
 
 deeplayerking (Freesound). 2022. Windows Error Sound Effect. Pixabay. Retrieved March 12, 2026 from https://pixabay.com/sound-effects/film-special-effects-windows-error-sound-effect-35894/
 
+detshana. 2026. Sky Images – Browse 96,143,006 Stock Photos, Vectors, and Video. Adobe Stock. Retrieved March 12, 2026 from https://stock.adobe.com/ca/search?k=sky&asset_id=99890228
+
+detshana. 2026. Sky Images – Browse 96,143,006 Stock Photos, Vectors, and Video. Adobe Stock. Retrieved March 12, 2026 from https://stock.adobe.com/ca/search?k=sky&asset_id=99890326
+
+klyaksun. 2026. Pixel Art UI Elements Images – Browse 37,070 Stock Photos, Vectors, and Video. Adobe Stock. Retrieved March 12, 2026 from https://stock.adobe.com/ca/search?k=pixel%2Bart%2Bui%2Belements&asset_id=1724955291
+
 Lesiakower. 2025. 8-BIT GAME OVER Sound Effect. Pixabay. Retrieved March 12, 2026 from https://pixabay.com/sound-effects/film-special-effects-8-bit-game-over-sound-effect-331435/
 
+lovelyday12. 2026. Sky Images – Browse 96,143,006 Stock Photos, Vectors, and Video. Adobe Stock. Retrieved March 12, 2026 from https://stock.adobe.com/ca/search?k=sky&asset_id=503376048
+
 Lumora_Studios. 2025. Pixel Jump. Pixabay. Retrieved March 12, 2026 from https://pixabay.com/sound-effects/film-special-effects-pixel-jump-319167/
+
+phatthanit. 2026. Sky Images – Browse 96,143,006 Stock Photos, Vectors, and Video. Adobe Stock. Retrieved March 12, 2026 from https://stock.adobe.com/ca/search?k=sky&asset_id=280987125
+
+Sharmin. 2026. Sky Images – Browse 96,143,006 Stock Photos, Vectors, and Video. Adobe Stock. Retrieved March 12, 2026 from https://stock.adobe.com/ca/search?k=sky&asset_id=512497688
+
+Todayphoto. 2026. Windows XP Images – Browse 17,774 Stock Photos, Vectors, and Video. Adobe Stock. Retrieved March 12, 2026 from https://stock.adobe.com/ca/search?k=windows%2Bxp%2B&search_page=2&asset_id=596780041
+
+Unagi, A. 2026. Y2K Fish Images – Browse 1,607 Stock Photos, Vectors, and Video. Adobe Stock. Retrieved March 12, 2026 from https://stock.adobe.com/ca/search?filters%5Bcontent_type%3Aphoto%5D=1&filters%5Bcontent_type%3Aillustration%5D=1&filters%5Bcontent_type%3Azip_vector%5D=1&filters%5Bcontent_type%3Avideo%5D=1&filters%5Bcontent_type%3Atemplate%5D=1&filters%5Bcontent_type%3A3d%5D=1&filters%5Bfetch_excluded_assets%5D=1&filters%5Binclude_stock_enterprise%5D=1&filters%5Bcontent_type%3Aimage%5D=1&k=y2k+fish&order=relevance&limit=100&search_page=2&search_type=pagination&acp=&aco=y2k+fish&get_facets=0
 
 ### b. Additional Relevant Sources
 
