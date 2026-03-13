@@ -57,7 +57,11 @@ After the showcase, we identified several areas to improve next:
 
 ## Assets
 
-List and attribute all non-original assets with in-text citations.
+
+> - `assets/sound/8-bit-heaven.mp3` (Pixabay) 
+> - `assets/sound/windows-error.mp3` (Pixabay) 
+> - `assets/sound/8-bit-game-over.mp3` (Pixabay) 
+> - `assets/sound/pixel-jump.mp3` (Pixabay) 
 
 ---
 
@@ -65,8 +69,18 @@ List and attribute all non-original assets with in-text citations.
 
 ### a. ACM Reference List
 
-Provide an alphabetical full reference list connected to the in-programming or in-text description citations in **ACM reference format**.
+Bullybilldestroyer (Freesound). 2022. 8-bit heaven. Pixabay. Retrieved March 12, 2026 from https://pixabay.com/sound-effects/musical-8-bit-heaven-26287/
+
+deeplayerking (Freesound). 2022. Windows Error Sound Effect. Pixabay. Retrieved March 12, 2026 from https://pixabay.com/sound-effects/film-special-effects-windows-error-sound-effect-35894/
+
+Lesiakower. 2025. 8-BIT GAME OVER Sound Effect. Pixabay. Retrieved March 12, 2026 from https://pixabay.com/sound-effects/film-special-effects-8-bit-game-over-sound-effect-331435/
+
+Lumora_Studios. 2025. Pixel Jump. Pixabay. Retrieved March 12, 2026 from https://pixabay.com/sound-effects/film-special-effects-pixel-jump-319167/
 
 ### b. Additional Relevant Sources
 
-Any additional relevant sources, such as disability research not directly referenced in the description, can be included alphabetically below the in-program citations.
+Pinterest moodboard: https://pin.it/1mRgognH3
+
+Toby Fox. 2025. Deltarune. Game [Steam].  (4 June 2025). Toby Fox. Last played 5 March 2026. 
+
+
