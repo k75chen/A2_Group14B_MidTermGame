@@ -12,7 +12,7 @@ GBDA302 Mid Term Game: **Reverie**
 
 ## Description
 
-**Cascade** is a vertical platformer set in a chaotic 90s internet world, inspired by the feeling of disruption and overload associated with Tourette’s syndrome. Players climb upward through a popup-filled digital space, where the environment constantly interferes with their movement and focus.
+**Reverie** is a vertical platformer set in a chaotic 90s internet world, inspired by the feeling of disruption and overload associated with Tourette’s syndrome. Players climb upward through a popup-filled digital space, where the environment constantly interferes with their movement and focus.
 
 The game’s mechanics are simple: move, jump, and make your way to the top. As players progress, popups become more intense and platforms become harder to trust, with slippery, sticky, and disappearing terrain changing how each jump feels. The overall experience is meant to feel nostalgic, overwhelming, and slightly chaotic, like surfing through a glitchy old internet while trying to keep it together.
 
