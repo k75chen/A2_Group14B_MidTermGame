@@ -398,6 +398,7 @@ function draw() {
       let bestPlatform = null;
       let bestDist = Infinity;
       for (let p of candidates) {
+        if (p.y < fellFromY) continue; // never respawn above where you fell from
         let dist = abs(p.y - fellFromY);
         if (dist < bestDist) {
           bestDist = dist;
@@ -763,6 +764,7 @@ function keyPressed() {
 
   if (gameState === "win" && keyCode === ENTER) {
     gameState = "playing";
+    if (levelIndex + 1 === 1) hearts = 4;
     loadLevel(levelIndex + 1);
   }
   if (gameState === "gameover" && (key === "r" || key === "R")) {
@@ -774,6 +776,10 @@ function keyPressed() {
     gameState = "playing";
     hearts = 4;
     loadLevel(0);
+  }
+  if (key === "8") {
+    hearts = 4;
+    loadLevel(1);
   }
 }
 
