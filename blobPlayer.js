@@ -100,6 +100,11 @@ class BlobPlayer {
           } else this.platformFriction = null;
 
           if (s.mechanic === "falling" && !s.falling) s.startFall();
+
+          // Carry player with moving platform
+          if (s.moveRange > 0) {
+            box.x += s.moveSpeed * s._moveDir;
+          }
         } else if (this.vy < 0) {
           box.y = s.y + s.h;
           this.vy = 0;

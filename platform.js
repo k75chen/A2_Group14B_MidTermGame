@@ -1,27 +1,32 @@
 /*
 Platform.js
-
+ 
 A Platform is a single axis-aligned rectangle in the world.
-
+ 
 mechanic field (derived from type in constructor):
   "normal"    – Standard forum post. No special effect.
   "slippery"  – Glossy input field. Low friction, player slides.
   "slow"      – Loading/buffer bar. Heavy drag, player moves slowly.
   "falling"   – Deleted post / error. Shakes for ~60 frames then disappears.
-
+ 
 Visual themes (forum UI aesthetic):
   normal     → white/grey forum message box
   slippery   → glossy XP-blue text input field
   slow       → green progress bar with animated stripes
   falling    → red "error / post removed" box that cracks and flickers
-
+ 
 All platform types still support the original named types (bed, table, etc.)
 for backwards compatibility with levels 1 & 2.
-
+ 
 Falling platform lifecycle:
   falling = false  → normal
   falling = true   → shaking for SHAKE_FRAMES frames
   removed = true   → no longer drawn or collided with
+ 
+Moving platform:
+  Set moveRange and moveSpeed in JSON to make a platform slide horizontally.
+  moveRange = how many pixels it travels left and right from its start x.
+  moveSpeed = pixels per frame (1.5 is a comfortable speed to jump onto).
 */
 
 // Map from JSON type strings to gameplay mechanic
@@ -48,6 +53,7 @@ const MECHANIC_MAP = {
   slippery: "slippery",
   slow: "slow",
   falling: "falling",
+  moving: "moving",
 
   // Special
   default: "normal",
@@ -59,7 +65,7 @@ const SHAKE_FRAMES = 60; // 1 second shake before falling
 const RESPAWN_FRAMES = 180; // 3 seconds before platform comes back
 
 class Platform {
-  constructor({ x, y, w, h, type }) {
+  constructor({ x, y, w, h, type, moveRange, moveSpeed }) {
     this.x = x;
     this.y = y;
     this.w = w;
@@ -76,6 +82,12 @@ class Platform {
 
     // Slow platform stripe animation offset
     this.stripeOffset = 0;
+
+    // Moving platform
+    this.moveRange = moveRange || 0;
+    this.moveSpeed = moveSpeed || 0;
+    this._originX = x;
+    this._moveDir = 1;
   }
 
   // Called when a player lands on a falling platform
@@ -86,6 +98,18 @@ class Platform {
   }
 
   update() {
+    // Horizontal movement
+    if (this.moveRange > 0) {
+      this.x += this.moveSpeed * this._moveDir;
+      if (this.x >= this._originX + this.moveRange) {
+        this.x = this._originX + this.moveRange;
+        this._moveDir = -1;
+      } else if (this.x <= this._originX) {
+        this.x = this._originX;
+        this._moveDir = 1;
+      }
+    }
+
     if (this.mechanic === "slow") {
       this.stripeOffset = (this.stripeOffset + 0.4) % 20;
     }
@@ -151,6 +175,11 @@ class Platform {
           this.w + pulse,
           this.h + pulse,
         );
+        break;
+
+      // ── Moving – scrolling marquee banner ─────────────────────────────────
+      case "moving":
+        this._drawMoving();
         break;
 
       // ── Normal / all legacy furniture types ────────────────────────────────
@@ -344,6 +373,43 @@ class Platform {
       );
       noStroke();
     }
+
+    noStroke();
+  }
+  // ── MOVING – scrolling marquee banner ─────────────────────────────────────
+  _drawMoving() {
+    // Shadow
+    fill(0, 0, 0, 20);
+    rect(this.x + 2, this.y + 3, this.w, this.h, 3);
+
+    // Body — classic marquee purple/teal gradient look
+    fill("#660099");
+    stroke("#FF00FF");
+    strokeWeight(1.5);
+    rect(this.x, this.y, this.w, this.h, 3);
+
+    // Inner lighter strip
+    noStroke();
+    fill("#9900CC");
+    rect(this.x + 2, this.y + 2, this.w - 4, this.h * 0.45, 2);
+
+    // Scrolling "marquee" text — offset by frameCount so it crawls left
+    drawingContext.save();
+    drawingContext.beginPath();
+    drawingContext.rect(this.x + 2, this.y, this.w - 4, this.h);
+    drawingContext.clip();
+    fill("#FFFF00");
+    textSize(8);
+    textAlign(LEFT, CENTER);
+    textStyle(BOLD);
+    let marqueeX = this.x + this.w - ((frameCount * 1.2) % (this.w + 120));
+    text(
+      "★ CLICK HERE ★ YOU WON ★ A FREE GIFTCARD ★",
+      marqueeX,
+      this.y + this.h / 2 + 1,
+    );
+    textStyle(NORMAL);
+    drawingContext.restore();
 
     noStroke();
   }
