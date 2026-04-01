@@ -792,6 +792,10 @@ function keyPressed() {
     hearts = 4;
     loadLevel(1);
   }
+  if (key === "9") {
+    hearts = 4;
+    loadLevel(2);
+  }
 }
 
 function mousePressed() {
