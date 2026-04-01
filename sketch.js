@@ -65,6 +65,7 @@ let cursorSprites = { normal: null, fall: null, jumpl: null, jumpr: null };
 
 // Background image
 let bgImg = null;
+let bgImg2 = null;
 
 // Start screen assets
 let startButtonImg = null;
@@ -126,7 +127,7 @@ function preload() {
     },
   );
 
-  // Background image
+  // Background images
   bgImg = loadImage(
     "assets/images/background.png",
     (img) => {
@@ -134,6 +135,15 @@ function preload() {
     },
     () => {
       bgImg = null;
+    },
+  );
+  bgImg2 = loadImage(
+    "assets/images/background2.png",
+    (img) => {
+      bgImg2 = img;
+    },
+    () => {
+      bgImg2 = null;
     },
   );
 
@@ -499,7 +509,8 @@ function draw() {
   push();
   translate(0, -cameraY);
   world.updatePlatforms();
-  world.drawWorld(bgImg);
+  let currentBg = levelIndex === 1 ? bgImg2 : bgImg;
+  world.drawWorld(currentBg);
   if (showPlayer) player.draw(world.theme.blob, cursorSprites);
   pop();
 
