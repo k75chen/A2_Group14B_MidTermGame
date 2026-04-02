@@ -540,7 +540,10 @@ function draw() {
     }
 
     // --- PHYSICS UPDATE ---
-    player.update(world.platforms);
+    // Normalize deltaTime to 60fps so physics is frame-rate independent.
+    // Capped at 3× to prevent a spiral of death if the tab freezes briefly.
+    let dt = min(deltaTime / (1000 / 60), 3);
+    player.update(world.platforms, dt);
 
     // --- CLICKING SOUND FOR SPRITE MOVEMENT (level 3 only) ---
     if (levelIndex === 2 && sndClick) {

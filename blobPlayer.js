@@ -44,7 +44,7 @@ class BlobPlayer {
     this.platformFriction = null;
   }
 
-  update(platforms) {
+  update(platforms, dt = 1) {
     // Apply moving platform carry FIRST — before any physics
     // so the player's starting position this frame already accounts for where the platform went
     if (this.onGround) {
@@ -73,17 +73,17 @@ class BlobPlayer {
     if (keyIsDown(65) || keyIsDown(LEFT_ARROW)) move -= 1;
     if (keyIsDown(68) || keyIsDown(RIGHT_ARROW)) move += 1;
 
-    this.vx += this.accel * move;
+    this.vx += this.accel * move * dt;
 
     let groundFric =
       this.platformFriction !== null
         ? this.platformFriction
         : this.frictionGround;
 
-    this.vx *= this.onGround ? groundFric : this.frictionAir;
+    this.vx *= Math.pow(this.onGround ? groundFric : this.frictionAir, dt);
     this.vx = constrain(this.vx, -this.maxRun, this.maxRun);
 
-    this.vy += this.gravity;
+    this.vy += this.gravity * dt;
 
     let box = {
       x: this.x - this.r,
@@ -93,7 +93,7 @@ class BlobPlayer {
     };
 
     // Move X
-    box.x += this.vx;
+    box.x += this.vx * dt;
     for (const s of platforms) {
       if (s.removed) continue;
       if (overlapAABB(box, s)) {
@@ -104,7 +104,7 @@ class BlobPlayer {
     }
 
     // Move Y
-    box.y += this.vy;
+    box.y += this.vy * dt;
     this.onGround = false;
     this.platformFriction = null;
     let groundPlatform = null; // track which platform player is standing on
