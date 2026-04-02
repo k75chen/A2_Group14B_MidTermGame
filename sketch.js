@@ -247,7 +247,7 @@ function preload() {
     },
   );
   sndBgMusic3 = loadSound(
-    "assets/sounds/Level3_mixdown.mp3",
+    "assets/sounds/Level3_fast_and_distorted (1).mp3",
     () => {},
     () => {
       sndBgMusic3 = null;
@@ -958,7 +958,7 @@ function keyPressed() {
     (key === " " || key === "W" || key === "w" || keyCode === UP_ARROW)
   ) {
     player.jump();
-    if (sndJump) {
+    if (sndJump && levelIndex !== 2) {
       sndJump.stop();
       sndJump.setVolume(0.6);
       sndJump.play();
