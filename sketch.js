@@ -69,13 +69,16 @@ let bgImg = null;
 let bgImg2 = null;
 let bgImg3 = null;
 
+// TV frame overlay
+let tvFrameImg = null;
+
 // Start screen assets
 let startButtonImg = null;
 let rulesImg = null;
 let reverieImg = null;
 
 // Sound assets
-let sndJump, sndBgMusic, sndGameover, sndRespawn, sndPopup;
+let sndJump, sndBgMusic, sndBgMusic3, sndClick, sndGameover, sndRespawn, sndPopup;
 
 function preload() {
   levelData = [];
@@ -173,6 +176,15 @@ function preload() {
       bgImg3 = null;
     },
   );
+  tvFrameImg = loadImage(
+    "assets/images/IMG_9046.PNG",
+    (img) => {
+      tvFrameImg = img;
+    },
+    () => {
+      tvFrameImg = null;
+    },
+  );
 
   // Sounds
   sndJump = loadSound(
@@ -208,6 +220,20 @@ function preload() {
     () => {},
     () => {
       sndPopup = null;
+    },
+  );
+  sndBgMusic3 = loadSound(
+    "assets/sounds/Level3_fast_and_distorted (1).mp3",
+    () => {},
+    () => {
+      sndBgMusic3 = null;
+    },
+  );
+  sndClick = loadSound(
+    "assets/sounds/Clicking.mp3",
+    () => {},
+    () => {
+      sndClick = null;
     },
   );
 }
@@ -488,6 +514,7 @@ function draw() {
       if (hearts <= 0) {
         gameState = "gameover";
         if (sndBgMusic) sndBgMusic.stop();
+        if (sndBgMusic3) sndBgMusic3.stop();
         if (sndGameover) {
           sndGameover.stop();
           sndGameover.setVolume(0.8);
@@ -498,6 +525,18 @@ function draw() {
 
     // --- PHYSICS UPDATE ---
     player.update(world.platforms);
+
+    // --- CLICKING SOUND FOR SPRITE MOVEMENT (level 3 only) ---
+    if (levelIndex === 2 && sndClick) {
+      if (player.onGround && abs(player.vx) > 0.5) {
+        if (!sndClick.isPlaying()) {
+          sndClick.setVolume(0.5);
+          sndClick.loop();
+        }
+      } else {
+        if (sndClick.isPlaying()) sndClick.stop();
+      }
+    }
 
     // --- TRACK PLAYER PROGRESSION ---
     if (!levelStarted && player.y < world.start.y - 1) levelStarted = true;
@@ -533,10 +572,12 @@ function draw() {
   // --- PRE-WORLD SCREENS (start/rules render before world exists) ---
   if (gameState === "start") {
     drawStartScreen();
+    drawTVFrame();
     return;
   }
   if (gameState === "rules") {
     drawRulesScreen();
+    drawTVFrame();
     return;
   }
 
@@ -576,6 +617,9 @@ function draw() {
   if (gameState === "gameover") drawGameOver();
   if (gameState === "win") drawWinScreen();
   if (gameState === "complete") drawCompleteScreen();
+
+  // --- TV FRAME — always on top ---
+  drawTVFrame();
 }
 
 function drawGameOver() {
@@ -806,6 +850,24 @@ function drawRulesScreen() {
   pop();
 }
 
+function drawTVFrame() {
+  if (!tvFrameImg) return;
+  push();
+  resetMatrix();
+  imageMode(CORNER);
+  noTint();
+  // Scale to cover the full canvas while preserving aspect ratio
+  let scaleX = width / tvFrameImg.width;
+  let scaleY = height / tvFrameImg.height;
+  let sc = max(scaleX, scaleY);
+  let fw = tvFrameImg.width * sc;
+  let fh = tvFrameImg.height * sc;
+  let fx = (width - fw) / 2;
+  let fy = (height - fh) / 2;
+  image(tvFrameImg, fx, fy, fw, fh);
+  pop();
+}
+
 function keyPressed() {
   if (gameState === "start") return; // no keys on start screen
   if (gameState === "rules" && keyCode === ENTER) {
@@ -883,6 +945,7 @@ function loadLevel(i) {
   gameState = "playing";
   hasBeenBelowFinish = false;
   levelStarted = false;
+  if (sndClick && sndClick.isPlaying()) sndClick.stop();
   world = new WorldLevel(levelData[levelIndex]);
   resizeCanvas(windowWidth, windowHeight);
   player.spawnFromLevel(world);
@@ -899,9 +962,19 @@ function loadLevel(i) {
   if (cameraY < 0) cameraY = 0;
 
   // Start background music looping quietly
-  if (sndBgMusic) {
-    sndBgMusic.stop();
-    sndBgMusic.setVolume(0.25);
-    sndBgMusic.loop();
+  if (levelIndex === 2) {
+    if (sndBgMusic) sndBgMusic.stop();
+    if (sndBgMusic3) {
+      sndBgMusic3.stop();
+      sndBgMusic3.setVolume(0.25);
+      sndBgMusic3.loop();
+    }
+  } else {
+    if (sndBgMusic3) sndBgMusic3.stop();
+    if (sndBgMusic) {
+      sndBgMusic.stop();
+      sndBgMusic.setVolume(0.25);
+      sndBgMusic.loop();
+    }
   }
 }
