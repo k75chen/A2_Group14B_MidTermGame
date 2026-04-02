@@ -78,7 +78,14 @@ let rulesImg = null;
 let reverieImg = null;
 
 // Sound assets
-let sndJump, sndBgMusic, sndBgMusic3, sndClick, sndGameover, sndRespawn, sndPopup;
+let sndJump,
+  sndBgMusic,
+  sndBgMusic2,
+  sndBgMusic3,
+  sndClick,
+  sndGameover,
+  sndRespawn,
+  sndPopup;
 
 function preload() {
   levelData = [];
@@ -199,6 +206,13 @@ function preload() {
     () => {},
     () => {
       sndBgMusic = null;
+    },
+  );
+  sndBgMusic2 = loadSound(
+    "assets/sounds/level2_slightly_faster (1).mp3",
+    () => {},
+    () => {
+      sndBgMusic2 = null;
     },
   );
   sndGameover = loadSound(
@@ -602,7 +616,11 @@ function draw() {
   world.updatePlatforms(player);
   let currentBg = levelIndex === 2 ? bgImg3 : levelIndex === 1 ? bgImg2 : bgImg;
   world.drawWorld(currentBg);
-  if (showPlayer) player.draw(world.theme.blob, levelIndex === 2 ? handSprites : cursorSprites);
+  if (showPlayer)
+    player.draw(
+      world.theme.blob,
+      levelIndex === 2 ? handSprites : cursorSprites,
+    );
   pop();
 
   // --- HUD ---
@@ -962,19 +980,19 @@ function loadLevel(i) {
   if (cameraY < 0) cameraY = 0;
 
   // Start background music looping quietly
-  if (levelIndex === 2) {
-    if (sndBgMusic) sndBgMusic.stop();
-    if (sndBgMusic3) {
-      sndBgMusic3.stop();
-      sndBgMusic3.setVolume(0.25);
-      sndBgMusic3.loop();
-    }
-  } else {
-    if (sndBgMusic3) sndBgMusic3.stop();
-    if (sndBgMusic) {
-      sndBgMusic.stop();
-      sndBgMusic.setVolume(0.25);
-      sndBgMusic.loop();
-    }
+  // Start background music looping quietly
+  let trackToPlay =
+    levelIndex === 2
+      ? sndBgMusic3
+      : levelIndex === 1
+        ? sndBgMusic2
+        : sndBgMusic;
+  if (sndBgMusic) sndBgMusic.stop();
+  if (sndBgMusic2) sndBgMusic2.stop();
+  if (sndBgMusic3) sndBgMusic3.stop();
+  if (trackToPlay) {
+    let vol = levelIndex === 2 ? 0.1 : 0.25;
+    trackToPlay.setVolume(vol);
+    trackToPlay.loop();
   }
 }
