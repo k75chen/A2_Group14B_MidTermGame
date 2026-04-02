@@ -60,6 +60,8 @@ const MECHANIC_MAP = {
   default: "normal",
   finish: "finish",
   checkpoint: "checkpoint",
+  moving: "moving",
+  invisible: "invisible",
 };
 
 const SHAKE_FRAMES = 60; // 1 second shake before falling
@@ -92,7 +94,7 @@ class Platform {
 
     // Invisible platform
     this.detectRadius = detectRadius || 150;
-    this.visAlpha = 0;       // 0 = fully invisible, 255 = fully visible
+    this.visAlpha = 0; // 0 = fully invisible, 255 = fully visible
     this._hintParticles = []; // subtle sparkles shown when player is nearby
   }
 
@@ -144,7 +146,9 @@ class Platform {
 
   update() {
     // Horizontal movement
+    this._lastDx = 0;
     if (this.moveRange > 0) {
+      let prevX = this.x;
       this.x += this.moveSpeed * this._moveDir;
       if (this.x >= this._originX + this.moveRange) {
         this.x = this._originX + this.moveRange;
@@ -153,6 +157,7 @@ class Platform {
         this.x = this._originX;
         this._moveDir = 1;
       }
+      this._lastDx = this.x - prevX; // exact pixels moved this frame
     }
 
     if (this.mechanic === "slow") {
@@ -230,6 +235,11 @@ class Platform {
       // ── Invisible – hidden until player is nearby ──────────────────────────
       case "invisible":
         this._drawInvisible();
+        break;
+
+      // ── Moving platform ───────────────────────────────────────────────────────
+      case "moving":
+        this._drawNormal(fillColor);
         break;
 
       // ── Normal / all legacy furniture types ────────────────────────────────

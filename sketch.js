@@ -42,15 +42,15 @@ const POPUP_SLOTS = [
   { imgKey: "small", imgIndex: 0, xf: 0.82, yf: 0.15 },
   { imgKey: "tall", imgIndex: 2, xf: 0.1, yf: 0.6 },
   { imgKey: "regular", imgIndex: 0, xf: 0.45, yf: 0.48 },
-  // Level 3 additional: slots 12-19 (mix of existing + paper)
-  { imgKey: "paper", imgIndex: 0, xf: 0.88, yf: 0.42 },
-  { imgKey: "paper", imgIndex: 1, xf: 0.25, yf: 0.1 },
+  // Level 3 dedicated: slots 12-19 (4 paper + 4 notification, alternating)
+  { imgKey: "paper",   imgIndex: 0, xf: 0.88, yf: 0.42 },
+  { imgKey: "small",   imgIndex: 0, xf: 0.1,  yf: 0.12 },
+  { imgKey: "paper",   imgIndex: 1, xf: 0.25, yf: 0.1  },
+  { imgKey: "tall",    imgIndex: 1, xf: 0.5,  yf: 0.05 },
+  { imgKey: "paper",   imgIndex: 2, xf: 0.78, yf: 0.78 },
   { imgKey: "regular", imgIndex: 1, xf: 0.62, yf: 0.68 },
-  { imgKey: "paper", imgIndex: 2, xf: 0.78, yf: 0.78 },
-  { imgKey: "paper", imgIndex: 3, xf: 0.12, yf: 0.85 },
-  { imgKey: "tall", imgIndex: 1, xf: 0.5, yf: 0.05 },
-  { imgKey: "paper", imgIndex: 4, xf: 0.35, yf: 0.35 },
-  { imgKey: "paper", imgIndex: 5, xf: 0.9, yf: 0.65 },
+  { imgKey: "paper",   imgIndex: 3, xf: 0.12, yf: 0.85 },
+  { imgKey: "long",    imgIndex: 0, xf: 0.58, yf: 0.8  },
 ];
 
 // Each slot gets a scale value: 0 = hidden, animates to 1 = full size
@@ -78,7 +78,14 @@ let rulesImg = null;
 let reverieImg = null;
 
 // Sound assets
-let sndJump, sndBgMusic, sndBgMusic3, sndClick, sndGameover, sndRespawn, sndPopup;
+let sndJump,
+  sndBgMusic,
+  sndBgMusic2,
+  sndBgMusic3,
+  sndClick,
+  sndGameover,
+  sndRespawn,
+  sndPopup;
 
 function preload() {
   levelData = [];
@@ -199,6 +206,13 @@ function preload() {
     () => {},
     () => {
       sndBgMusic = null;
+    },
+  );
+  sndBgMusic2 = loadSound(
+    "assets/sounds/level2_slightly_faster (with distortion).mp3",
+    () => {},
+    () => {
+      sndBgMusic2 = null;
     },
   );
   sndGameover = loadSound(
@@ -418,7 +432,7 @@ function draw() {
       let levelTopY = 80;
       let climbProgress = map(player.y, levelStartY, levelTopY, 0, 1);
       climbProgress = constrain(climbProgress, 0, 1);
-      let stressRate = levelIndex === 2 ? 1.3 : 1.0;
+      let stressRate = levelIndex === 2 ? 1.0 : 1.0;
       stress += map(climbProgress, 0, 1, 0.006, 0.018) * stressRate;
     }
 
@@ -426,14 +440,14 @@ function draw() {
     stress = constrain(stress, 0, stressCap);
 
     // --- POPUP SLOTS ---
-    let maxSlots = levelIndex === 0 ? 6 : levelIndex === 1 ? 12 : 14;
+    let maxSlots = levelIndex === 0 ? 6 : levelIndex === 1 ? 12 : 8;
     let targetVisible = constrain(floor(stress / 5), 0, maxSlots);
 
     if (targetVisible > visibleSlotCount) {
       let nextSlot = visibleSlotCount;
       if (levelIndex === 2) {
         let hidden = [];
-        for (let s = 0; s < maxSlots; s++) {
+        for (let s = 12; s < 20; s++) {
           if (popupScales[s] === 0) hidden.push(s);
         }
         if (hidden.length > 0) nextSlot = hidden[floor(random(hidden.length))];
@@ -604,7 +618,12 @@ function draw() {
   world.updatePlatforms(player);
   let currentBg = levelIndex === 2 ? bgImg3 : levelIndex === 1 ? bgImg2 : bgImg;
   world.drawWorld(currentBg);
-  if (showPlayer) player.draw(world.theme.blob, levelIndex === 2 ? handSprites : cursorSprites);
+  if (showPlayer)
+    player.draw(
+      world.theme.blob,
+      levelIndex === 2 ? handSprites : cursorSprites,
+      levelIndex === 2 ? 1.4 : 1,
+    );
   pop();
 
   // --- HUD ---
@@ -897,7 +916,7 @@ function keyPressed() {
   if (gameState === "gameover" && (key === "r" || key === "R")) {
     gameState = "playing";
     hearts = 4;
-    loadLevel(0);
+    loadLevel(levelIndex);
   }
   if (gameState === "complete" && (key === "r" || key === "R")) {
     gameState = "playing";
@@ -964,19 +983,19 @@ function loadLevel(i) {
   if (cameraY < 0) cameraY = 0;
 
   // Start background music looping quietly
-  if (levelIndex === 2) {
-    if (sndBgMusic) sndBgMusic.stop();
-    if (sndBgMusic3) {
-      sndBgMusic3.stop();
-      sndBgMusic3.setVolume(0.25);
-      sndBgMusic3.loop();
-    }
-  } else {
-    if (sndBgMusic3) sndBgMusic3.stop();
-    if (sndBgMusic) {
-      sndBgMusic.stop();
-      sndBgMusic.setVolume(0.25);
-      sndBgMusic.loop();
-    }
+  // Start background music looping quietly
+  let trackToPlay =
+    levelIndex === 2
+      ? sndBgMusic3
+      : levelIndex === 1
+        ? sndBgMusic2
+        : sndBgMusic;
+  if (sndBgMusic) sndBgMusic.stop();
+  if (sndBgMusic2) sndBgMusic2.stop();
+  if (sndBgMusic3) sndBgMusic3.stop();
+  if (trackToPlay) {
+    let vol = levelIndex === 2 ? 0.1 : 0.25;
+    trackToPlay.setVolume(vol);
+    trackToPlay.loop();
   }
 }
