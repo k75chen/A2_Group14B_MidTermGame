@@ -42,15 +42,17 @@ const POPUP_SLOTS = [
   { imgKey: "small", imgIndex: 0, xf: 0.82, yf: 0.15 },
   { imgKey: "tall", imgIndex: 2, xf: 0.1, yf: 0.6 },
   { imgKey: "regular", imgIndex: 0, xf: 0.45, yf: 0.48 },
-  // Level 3 dedicated: slots 12-19 (4 paper + 4 notification, alternating)
-  { imgKey: "paper",   imgIndex: 0, xf: 0.88, yf: 0.42 },
-  { imgKey: "small",   imgIndex: 0, xf: 0.1,  yf: 0.12 },
-  { imgKey: "paper",   imgIndex: 1, xf: 0.25, yf: 0.1  },
-  { imgKey: "tall",    imgIndex: 1, xf: 0.5,  yf: 0.05 },
-  { imgKey: "paper",   imgIndex: 2, xf: 0.78, yf: 0.78 },
-  { imgKey: "regular", imgIndex: 1, xf: 0.62, yf: 0.68 },
-  { imgKey: "paper",   imgIndex: 3, xf: 0.12, yf: 0.85 },
-  { imgKey: "long",    imgIndex: 0, xf: 0.58, yf: 0.8  },
+  // Level 3 dedicated: slots 12-21 (7 paper + 3 small)
+  { imgKey: "paper",   imgIndex: 0, xf: 0.85, yf: 0.40 },
+  { imgKey: "small",   imgIndex: 0, xf: 0.08, yf: 0.10 },
+  { imgKey: "paper",   imgIndex: 1, xf: 0.22, yf: 0.08 },
+  { imgKey: "paper",   imgIndex: 2, xf: 0.60, yf: 0.05 },
+  { imgKey: "small",   imgIndex: 1, xf: 0.72, yf: 0.22 },
+  { imgKey: "paper",   imgIndex: 3, xf: 0.05, yf: 0.45 },
+  { imgKey: "paper",   imgIndex: 4, xf: 0.40, yf: 0.62 },
+  { imgKey: "small",   imgIndex: 2, xf: 0.80, yf: 0.72 },
+  { imgKey: "paper",   imgIndex: 5, xf: 0.12, yf: 0.82 },
+  { imgKey: "paper",   imgIndex: 6, xf: 0.55, yf: 0.88 },
 ];
 
 // Each slot gets a scale value: 0 = hidden, animates to 1 = full size
@@ -245,7 +247,7 @@ function preload() {
     },
   );
   sndBgMusic3 = loadSound(
-    "assets/sounds/Level3_fast_and_distorted (1).mp3",
+    "assets/sounds/Level3_mixdown.mp3",
     () => {},
     () => {
       sndBgMusic3 = null;
@@ -441,7 +443,7 @@ function draw() {
       let levelTopY = 80;
       let climbProgress = map(player.y, levelStartY, levelTopY, 0, 1);
       climbProgress = constrain(climbProgress, 0, 1);
-      let stressRate = levelIndex === 2 ? 1.0 : 1.0;
+      let stressRate = levelIndex === 2 ? 1.2 : 1.0;
       stress += map(climbProgress, 0, 1, 0.006, 0.018) * stressRate;
     }
 
@@ -449,14 +451,14 @@ function draw() {
     stress = constrain(stress, 0, stressCap);
 
     // --- POPUP SLOTS ---
-    let maxSlots = levelIndex === 0 ? 6 : levelIndex === 1 ? 12 : 8;
+    let maxSlots = levelIndex === 0 ? 6 : levelIndex === 1 ? 12 : 10;
     let targetVisible = constrain(floor(stress / 5), 0, maxSlots);
 
     if (targetVisible > visibleSlotCount) {
       let nextSlot = visibleSlotCount;
       if (levelIndex === 2) {
         let hidden = [];
-        for (let s = 12; s < 20; s++) {
+        for (let s = 12; s < 22; s++) {
           if (popupScales[s] === 0) hidden.push(s);
         }
         if (hidden.length > 0) nextSlot = hidden[floor(random(hidden.length))];
