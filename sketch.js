@@ -209,7 +209,7 @@ function preload() {
     },
   );
   sndBgMusic2 = loadSound(
-    "assets/sounds/level2_slightly_faster (1).mp3",
+    "assets/sounds/level2_slightly_faster (with distortion).mp3",
     () => {},
     () => {
       sndBgMusic2 = null;
@@ -913,7 +913,7 @@ function keyPressed() {
   if (gameState === "gameover" && (key === "r" || key === "R")) {
     gameState = "playing";
     hearts = 4;
-    loadLevel(0);
+    loadLevel(levelIndex);
   }
   if (gameState === "complete" && (key === "r" || key === "R")) {
     gameState = "playing";
