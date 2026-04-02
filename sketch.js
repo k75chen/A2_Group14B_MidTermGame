@@ -643,7 +643,7 @@ function draw() {
     translate(0, tvRect.y - cameraY); // align world top with TV screen top
     world.updatePlatforms(player);
     world.drawWorld(bgImg3);
-    if (showPlayer) player.draw(world.theme.blob, handSprites, 1.4);
+    if (showPlayer) player.draw(world.theme.blob, cursorSprites, 1.4);
     pop();
 
     drawingContext.restore(); // lift clip so HUD renders without restriction
