@@ -69,8 +69,16 @@ let bgImg = null;
 let bgImg2 = null;
 let bgImg3 = null;
 
-// TV frame overlay
+// TV frame overlay (level 3 only)
 let tvFrameImg = null;
+let hudArea = null; // { x, y, w, h } — set to TV inner rect for level 3, null otherwise
+
+// Inner screen bounds as fractions of the TV frame image dimensions.
+// Tune these to match tvscreen.png's actual bezel proportions.
+const TV_INNER_LEFT   = 0.10;
+const TV_INNER_TOP    = 0.08;
+const TV_INNER_RIGHT  = 0.90;
+const TV_INNER_BOTTOM = 0.90;
 
 // Start screen assets
 let startButtonImg = null;
@@ -184,7 +192,7 @@ function preload() {
     },
   );
   tvFrameImg = loadImage(
-    "assets/images/IMG_9046.PNG",
+    "assets/images/tvscreen.png",
     (img) => {
       tvFrameImg = img;
     },
@@ -317,8 +325,9 @@ function drawHearts() {
   const total = 4;
   const size = 32;
   const spacing = 50;
-  const startX = 24;
-  const startY = 28;
+  const ha = hudArea || { x: 0, y: 0, w: width, h: height };
+  const startX = ha.x + 24;
+  const startY = ha.y + 28;
 
   // Dark pill backdrop behind all hearts so they pop on any background
   noStroke();
@@ -519,7 +528,7 @@ function draw() {
       player.vx = 0;
       player.vy = 0;
       lastGroundY = player.y;
-      cameraY = player.y - height * 0.6;
+      cameraY = player.y - ((levelIndex === 2 && tvFrameImg) ? getTVInnerRect().h : height) * 0.6;
       respawnFlashTimer = 90;
       if (sndRespawn) {
         sndRespawn.stop();
@@ -591,43 +600,65 @@ function draw() {
   // --- PRE-WORLD SCREENS (start/rules render before world exists) ---
   if (gameState === "start") {
     drawStartScreen();
-    drawTVFrame();
     return;
   }
   if (gameState === "rules") {
     drawRulesScreen();
-    drawTVFrame();
     return;
   }
 
   // --- CAMERA ---
   if (!world) return;
-  const target = player.y - height * 0.6;
+  let screenH = (levelIndex === 2 && tvFrameImg) ? getTVInnerRect().h : height;
+  const target = player.y - screenH * 0.6;
   cameraY = lerp(cameraY, target, 0.1);
   cameraY = max(cameraY, 0);
   if (world.height !== undefined)
-    cameraY = min(cameraY, max(world.height - height, 0));
+    cameraY = min(cameraY, max(world.height - screenH, 0));
 
   // --- DRAW WORLD ---
   if (respawnFlashTimer > 0) respawnFlashTimer--;
   let showPlayer =
     respawnFlashTimer === 0 || floor(respawnFlashTimer / 15) % 2 === 0;
 
-  // Clear canvas first so areas outside the bg image don't show stale frames
-  background(color(world.theme.bg));
+  if (levelIndex === 2) {
+    // Level 3: clip all game rendering to the TV inner screen boundary
+    let tvRect = getTVInnerRect();
+    hudArea = tvRect;
+    background(0); // black outside the TV screen area
 
-  push();
-  translate(0, -cameraY);
-  world.updatePlatforms(player);
-  let currentBg = levelIndex === 2 ? bgImg3 : levelIndex === 1 ? bgImg2 : bgImg;
-  world.drawWorld(currentBg);
-  if (showPlayer)
-    player.draw(
-      world.theme.blob,
-      levelIndex === 2 ? handSprites : cursorSprites,
-      levelIndex === 2 ? 1.4 : 1,
-    );
-  pop();
+    drawingContext.save();
+    drawingContext.beginPath();
+    drawingContext.rect(tvRect.x, tvRect.y, tvRect.w, tvRect.h);
+    drawingContext.clip();
+
+    // Fill TV screen area with level background colour
+    noStroke();
+    fill(color(world.theme.bg));
+    rect(tvRect.x, tvRect.y, tvRect.w, tvRect.h);
+
+    push();
+    translate(0, tvRect.y - cameraY); // align world top with TV screen top
+    world.updatePlatforms(player);
+    world.drawWorld(bgImg3);
+    if (showPlayer) player.draw(world.theme.blob, handSprites, 1.4);
+    pop();
+
+    drawingContext.restore(); // lift clip so HUD renders without restriction
+  } else {
+    // Levels 1 & 2: standard full-canvas rendering
+    hudArea = null;
+    background(color(world.theme.bg));
+
+    push();
+    translate(0, -cameraY);
+    world.updatePlatforms(player);
+    let currentBg = levelIndex === 1 ? bgImg2 : bgImg;
+    world.drawWorld(currentBg);
+    if (showPlayer)
+      player.draw(world.theme.blob, cursorSprites, 1);
+    pop();
+  }
 
   // --- HUD ---
   push();
@@ -642,8 +673,8 @@ function draw() {
   if (gameState === "win") drawWinScreen();
   if (gameState === "complete") drawCompleteScreen();
 
-  // --- TV FRAME — always on top ---
-  drawTVFrame();
+  // --- TV FRAME — level 3 only, always on top ---
+  if (levelIndex === 2) drawTVFrame();
 }
 
 function drawGameOver() {
@@ -711,6 +742,7 @@ function drawCompleteScreen() {
 }
 
 function drawPopups() {
+  const ha = hudArea || { x: 0, y: 0, w: width, h: height };
   imageMode(CORNER);
   for (let s = 0; s < POPUP_SLOTS.length; s++) {
     let sc = popupScales[s];
@@ -723,22 +755,22 @@ function drawPopups() {
 
     let maxW =
       slot.imgKey === "long"
-        ? width * 0.3
+        ? ha.w * 0.3
         : slot.imgKey === "tall"
-          ? width * 0.18
+          ? ha.w * 0.18
           : slot.imgKey === "small"
-            ? width * 0.14
+            ? ha.w * 0.14
             : slot.imgKey === "paper"
-              ? width * 0.2
-              : width * 0.22;
+              ? ha.w * 0.2
+              : ha.w * 0.22;
     let baseScale = maxW / img.width;
     let dw = img.width * baseScale * sc;
     let dh = img.height * baseScale * sc;
 
     // Anchor from top-left corner position, but keep the center fixed
     // so the popup grows from its intended position rather than top-left
-    let cx = slot.xf * width + (img.width * baseScale) / 2;
-    let cy = slot.yf * height + (img.height * baseScale) / 2;
+    let cx = ha.x + slot.xf * ha.w + (img.width * baseScale) / 2;
+    let cy = ha.y + slot.yf * ha.h + (img.height * baseScale) / 2;
 
     image(img, cx - dw / 2, cy - dh / 2, dw, dh);
   }
@@ -751,8 +783,9 @@ function drawStressDebug() {
   let stressCap = levelIndex === 0 ? 30 : levelIndex === 1 ? 60 : 100;
   let barW = 180,
     barH = 18;
-  let bx = width - barW - 20,
-    by = 16;
+  const ha = hudArea || { x: 0, y: 0, w: width, h: height };
+  let bx = ha.x + ha.w - barW - 20,
+    by = ha.y + 16;
 
   noStroke();
   fill(0, 0, 0, 60);
@@ -892,6 +925,25 @@ function drawTVFrame() {
   pop();
 }
 
+// Returns the inner screen rectangle of the TV frame in canvas coordinates.
+// Uses the same scaling as drawTVFrame() so both stay in sync.
+function getTVInnerRect() {
+  if (!tvFrameImg) return { x: 0, y: 0, w: width, h: height };
+  let scaleX = width / tvFrameImg.width;
+  let scaleY = height / tvFrameImg.height;
+  let sc = max(scaleX, scaleY);
+  let fw = tvFrameImg.width * sc;
+  let fh = tvFrameImg.height * sc;
+  let fx = (width - fw) / 2;
+  let fy = (height - fh) / 2;
+  return {
+    x: fx + TV_INNER_LEFT * fw,
+    y: fy + TV_INNER_TOP * fh,
+    w: (TV_INNER_RIGHT - TV_INNER_LEFT) * fw,
+    h: (TV_INNER_BOTTOM - TV_INNER_TOP) * fh,
+  };
+}
+
 function keyPressed() {
   if (gameState === "start") return; // no keys on start screen
   if (gameState === "rules" && keyCode === ENTER) {
@@ -982,7 +1034,8 @@ function loadLevel(i) {
   visibleSlotCount = 0;
   popupSpawnCooldown = 0;
   respawnFlashTimer = 0;
-  cameraY = player.y - height * 0.6;
+  let initScreenH = (levelIndex === 2 && tvFrameImg) ? getTVInnerRect().h : height;
+  cameraY = player.y - initScreenH * 0.6;
   if (cameraY < 0) cameraY = 0;
 
   // Start background music looping quietly
