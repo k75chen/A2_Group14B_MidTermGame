@@ -25,7 +25,7 @@ let lastGroundY = 0;
 // stress & popups
 let stress = 0;
 
-let popupImgs = { small: [], regular: [], tall: [], long: [] };
+let popupImgs = { small: [], regular: [], tall: [], long: [], paper: [] };
 
 const POPUP_SLOTS = [
   // Level 1 cap: 6 popups (stress 0-30%, 1 per 5%)
@@ -42,15 +42,15 @@ const POPUP_SLOTS = [
   { imgKey: "small", imgIndex: 0, xf: 0.82, yf: 0.15 },
   { imgKey: "tall", imgIndex: 2, xf: 0.1, yf: 0.6 },
   { imgKey: "regular", imgIndex: 0, xf: 0.45, yf: 0.48 },
-  // Level 3 additional: slots 12-19
-  { imgKey: "small", imgIndex: 1, xf: 0.88, yf: 0.42 },
-  { imgKey: "tall", imgIndex: 0, xf: 0.25, yf: 0.1 },
+  // Level 3 additional: slots 12-19 (mix of existing + paper)
+  { imgKey: "paper", imgIndex: 0, xf: 0.88, yf: 0.42 },
+  { imgKey: "paper", imgIndex: 1, xf: 0.25, yf: 0.1 },
   { imgKey: "regular", imgIndex: 1, xf: 0.62, yf: 0.68 },
-  { imgKey: "small", imgIndex: 2, xf: 0.78, yf: 0.78 },
-  { imgKey: "long", imgIndex: 0, xf: 0.12, yf: 0.85 },
+  { imgKey: "paper", imgIndex: 2, xf: 0.78, yf: 0.78 },
+  { imgKey: "paper", imgIndex: 3, xf: 0.12, yf: 0.85 },
   { imgKey: "tall", imgIndex: 1, xf: 0.5, yf: 0.05 },
-  { imgKey: "regular", imgIndex: 2, xf: 0.35, yf: 0.35 },
-  { imgKey: "small", imgIndex: 0, xf: 0.9, yf: 0.65 },
+  { imgKey: "paper", imgIndex: 4, xf: 0.35, yf: 0.35 },
+  { imgKey: "paper", imgIndex: 5, xf: 0.9, yf: 0.65 },
 ];
 
 // Each slot gets a scale value: 0 = hidden, animates to 1 = full size
@@ -62,10 +62,12 @@ let visibleSlotCount = 0;
 let popupSpawnCooldown = 0;
 
 let cursorSprites = { normal: null, fall: null, jumpl: null, jumpr: null };
+let handSprites = { normal: null, fall: null, jumpl: null, jumpr: null };
 
 // Background image
 let bgImg = null;
 let bgImg2 = null;
+let bgImg3 = null;
 
 // Start screen assets
 let startButtonImg = null;
@@ -96,6 +98,22 @@ function preload() {
         );
       })(key, i - 1, i);
     }
+  }
+
+  // Load paper popups for level 3 (popup_paper1-4, 6-11; no 5)
+  const paperNums = [1, 2, 3, 4, 6, 7, 8, 9, 10, 11];
+  for (let i = 0; i < paperNums.length; i++) {
+    (function (idx, num) {
+      popupImgs.paper[idx] = loadImage(
+        "assets/images/popup_paper" + num + ".PNG",
+        (img) => {
+          popupImgs.paper[idx] = img;
+        },
+        () => {
+          popupImgs.paper[idx] = null;
+        },
+      );
+    })(i, paperNums[i]);
   }
 
   // Start screen images
@@ -144,6 +162,15 @@ function preload() {
     },
     () => {
       bgImg2 = null;
+    },
+  );
+  bgImg3 = loadImage(
+    "assets/images/Level3Background.png",
+    (img) => {
+      bgImg3 = img;
+    },
+    () => {
+      bgImg3 = null;
     },
   );
 
@@ -209,6 +236,28 @@ function setup() {
           paths[i],
           (img) => {
             cursorSprites[name] = img;
+          },
+          () => tryNext(i + 1),
+        );
+      }
+      tryNext(0);
+    })(s);
+  }
+
+  // Load hand sprites for level 3
+  for (let s of spriteNames) {
+    (function (name) {
+      handSprites[name] = null;
+      const paths = [
+        "assets/images/hand_" + name + ".PNG",
+        "assets/images/hand_" + name + ".png",
+      ];
+      function tryNext(i) {
+        if (i >= paths.length) return;
+        loadImage(
+          paths[i],
+          (img) => {
+            handSprites[name] = img;
           },
           () => tryNext(i + 1),
         );
@@ -341,14 +390,15 @@ function draw() {
       let levelTopY = 80;
       let climbProgress = map(player.y, levelStartY, levelTopY, 0, 1);
       climbProgress = constrain(climbProgress, 0, 1);
-      stress += map(climbProgress, 0, 1, 0.006, 0.018);
+      let stressRate = levelIndex === 2 ? 1.3 : 1.0;
+      stress += map(climbProgress, 0, 1, 0.006, 0.018) * stressRate;
     }
 
     let stressCap = levelIndex === 0 ? 30 : levelIndex === 1 ? 60 : 100;
     stress = constrain(stress, 0, stressCap);
 
     // --- POPUP SLOTS ---
-    let maxSlots = levelIndex === 0 ? 6 : levelIndex === 1 ? 12 : 20;
+    let maxSlots = levelIndex === 0 ? 6 : levelIndex === 1 ? 12 : 14;
     let targetVisible = constrain(floor(stress / 5), 0, maxSlots);
 
     if (targetVisible > visibleSlotCount) {
@@ -508,10 +558,10 @@ function draw() {
 
   push();
   translate(0, -cameraY);
-  world.updatePlatforms();
-  let currentBg = levelIndex === 1 ? bgImg2 : bgImg;
+  world.updatePlatforms(player);
+  let currentBg = levelIndex === 2 ? bgImg3 : levelIndex === 1 ? bgImg2 : bgImg;
   world.drawWorld(currentBg);
-  if (showPlayer) player.draw(world.theme.blob, cursorSprites);
+  if (showPlayer) player.draw(world.theme.blob, levelIndex === 2 ? handSprites : cursorSprites);
   pop();
 
   // --- HUD ---
@@ -610,7 +660,9 @@ function drawPopups() {
           ? width * 0.18
           : slot.imgKey === "small"
             ? width * 0.14
-            : width * 0.22;
+            : slot.imgKey === "paper"
+              ? width * 0.2
+              : width * 0.22;
     let baseScale = maxW / img.width;
     let dw = img.width * baseScale * sc;
     let dh = img.height * baseScale * sc;

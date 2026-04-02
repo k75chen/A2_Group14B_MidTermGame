@@ -54,6 +54,7 @@ const MECHANIC_MAP = {
   slow: "slow",
   falling: "falling",
   moving: "moving",
+  invisible: "invisible",
 
   // Special
   default: "normal",
@@ -65,7 +66,7 @@ const SHAKE_FRAMES = 60; // 1 second shake before falling
 const RESPAWN_FRAMES = 180; // 3 seconds before platform comes back
 
 class Platform {
-  constructor({ x, y, w, h, type, moveRange, moveSpeed }) {
+  constructor({ x, y, w, h, type, moveRange, moveSpeed, detectRadius }) {
     this.x = x;
     this.y = y;
     this.w = w;
@@ -88,6 +89,50 @@ class Platform {
     this.moveSpeed = moveSpeed || 0;
     this._originX = x;
     this._moveDir = 1;
+
+    // Invisible platform
+    this.detectRadius = detectRadius || 150;
+    this.visAlpha = 0;       // 0 = fully invisible, 255 = fully visible
+    this._hintParticles = []; // subtle sparkles shown when player is nearby
+  }
+
+  // Called each frame from worldLevel with the player's position
+  updateVisibility(playerX, playerY) {
+    let cx = this.x + this.w / 2;
+    let cy = this.y + this.h / 2;
+    let d = dist(playerX, playerY, cx, cy);
+
+    // Fade in when inside detectRadius, fade out when outside
+    let targetAlpha = d < this.detectRadius ? 255 : 0;
+    this.visAlpha = lerp(this.visAlpha, targetAlpha, 0.14);
+
+    // Spawn hint sparkles when player is close but platform is still hidden
+    let hintZone = this.detectRadius * 2.5;
+    if (d < hintZone && d > this.detectRadius) {
+      // More particles, spawning faster, the closer the player gets
+      let spawnRate = floor(map(d, hintZone, this.detectRadius, 12, 3));
+      if (frameCount % spawnRate === 0) {
+        for (let i = 0; i < 2; i++) {
+          this._hintParticles.push({
+            x: this.x + random(this.w),
+            y: this.y + random(-6, this.h + 6),
+            life: 1.0,
+            size: random(6, 14),
+            vx: random(-0.5, 0.5),
+            vy: random(-1.2, -0.4),
+          });
+        }
+      }
+    }
+
+    // Tick down hint particles
+    for (let i = this._hintParticles.length - 1; i >= 0; i--) {
+      let p = this._hintParticles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.025;
+      if (p.life <= 0) this._hintParticles.splice(i, 1);
+    }
   }
 
   // Called when a player lands on a falling platform
@@ -180,6 +225,11 @@ class Platform {
       // ── Moving – scrolling marquee banner ─────────────────────────────────
       case "moving":
         this._drawMoving();
+        break;
+
+      // ── Invisible – hidden until player is nearby ──────────────────────────
+      case "invisible":
+        this._drawInvisible();
         break;
 
       // ── Normal / all legacy furniture types ────────────────────────────────
@@ -376,6 +426,68 @@ class Platform {
 
     noStroke();
   }
+  // ── INVISIBLE – hidden platform that fades in when player is nearby ────────
+  _drawInvisible() {
+    let pulse = sin(frameCount * 0.1) * 0.5 + 0.5; // 0-1
+
+    // Always draw hint sparkles — bright and large so players notice them
+    for (let p of this._hintParticles) {
+      noStroke();
+      // Bright white-cyan core
+      fill(200, 245, 255, p.life * 220);
+      ellipse(p.x, p.y, p.size * p.life, p.size * p.life);
+      // Soft glow ring around each sparkle
+      fill(100, 210, 255, p.life * 80);
+      ellipse(p.x, p.y, p.size * p.life * 2.2, p.size * p.life * 2.2);
+    }
+
+    // Even when invisible, draw a faint ghost outline so players can sense the shape
+    noFill();
+    stroke(180, 230, 255, 40 + pulse * 30);
+    strokeWeight(1.5);
+    rect(this.x, this.y, this.w, this.h, 3);
+    noStroke();
+
+    if (this.visAlpha < 4) return;
+
+    let a = this.visAlpha;
+
+    // Wide outer glow — very visible bloom
+    noStroke();
+    fill(60, 190, 255, a * 0.45);
+    rect(this.x - 10, this.y - 10, this.w + 20, this.h + 20, 12);
+
+    // Mid glow ring, pulsing
+    fill(100, 215, 255, a * 0.55 * (0.6 + pulse * 0.4));
+    rect(this.x - 5, this.y - 5, this.w + 10, this.h + 10, 8);
+
+    // Main body — bright electric teal, nearly opaque
+    fill(0, 220, 255, a * 0.92);
+    stroke(180, 245, 255, a);
+    strokeWeight(2);
+    rect(this.x, this.y, this.w, this.h, 3);
+
+    // Bold white top highlight
+    noStroke();
+    fill(255, 255, 255, a * 0.65);
+    rect(this.x + 2, this.y + 2, this.w - 4, this.h * 0.45, 2);
+
+    // Fast scan-line sweep
+    let scanPos = ((frameCount * 2.5) % (this.w + 30)) - 15;
+    fill(255, 255, 255, a * 0.8);
+    rect(this.x + scanPos, this.y + 1, 8, this.h - 2, 2);
+
+    // Pulsing edge sparkle dots along top edge
+    fill(255, 255, 255, a * 0.9 * pulse);
+    let dotSpacing = this.w / 5;
+    for (let i = 0; i <= 5; i++) {
+      let dotSize = 3 + pulse * 3;
+      ellipse(this.x + i * dotSpacing, this.y + 2, dotSize, dotSize);
+    }
+
+    noStroke();
+  }
+
   // ── MOVING – scrolling marquee banner ─────────────────────────────────────
   _drawMoving() {
     // Shadow

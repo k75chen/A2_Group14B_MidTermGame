@@ -93,9 +93,12 @@ class WorldLevel {
   The player draws itself separately, after the world is drawn.
   */
   // Update platform state each frame (handles falling timers, stripe animation)
-  updatePlatforms() {
+  updatePlatforms(player) {
     for (const p of this.platforms) {
       if (p.update) p.update();
+      if (player && p.mechanic === "invisible") {
+        p.updateVisibility(player.x, player.y);
+      }
     }
   }
 

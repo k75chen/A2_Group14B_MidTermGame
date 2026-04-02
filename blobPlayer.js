@@ -13,8 +13,8 @@ class BlobPlayer {
     this.vx = 0;
     this.vy = 0;
 
-    this.accel = 0.8;
-    this.maxRun = 7.0;
+    this.accel = 0.6;
+    this.maxRun = 5.5;
 
     this.gravity = 0.45;
     this.jumpV = -14.0;
