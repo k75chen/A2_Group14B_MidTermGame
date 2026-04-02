@@ -13,8 +13,8 @@ class BlobPlayer {
     this.vx = 0;
     this.vy = 0;
 
-    this.accel = 0.6;
-    this.maxRun = 5.5;
+    this.accel = 0.8;
+    this.maxRun = 7.0;
 
     this.gravity = 0.45;
     this.jumpV = -14.0;
@@ -45,6 +45,29 @@ class BlobPlayer {
   }
 
   update(platforms) {
+    // Apply moving platform carry FIRST — before any physics
+    // so the player's starting position this frame already accounts for where the platform went
+    if (this.onGround) {
+      for (const s of platforms) {
+        if (s.removed || !s.moveRange) continue;
+        // Check if player was standing on this platform last frame
+        let feet = {
+          x: this.x - this.r,
+          y: this.y - this.r,
+          w: this.r * 2,
+          h: this.r * 2,
+        };
+        let onTop =
+          this.x > s.x &&
+          this.x < s.x + s.w &&
+          Math.abs(this.y + this.r - s.y) < 6;
+        if (onTop) {
+          this.x += s._lastDx;
+          break;
+        }
+      }
+    }
+
     // Horizontal input
     let move = 0;
     if (keyIsDown(65) || keyIsDown(LEFT_ARROW)) move -= 1;
@@ -84,6 +107,7 @@ class BlobPlayer {
     box.y += this.vy;
     this.onGround = false;
     this.platformFriction = null;
+    let groundPlatform = null; // track which platform player is standing on
 
     for (const s of platforms) {
       if (s.removed) continue;
@@ -92,6 +116,7 @@ class BlobPlayer {
           box.y = s.y - box.h;
           this.vy = 0;
           this.onGround = true;
+          groundPlatform = s;
 
           if (s.mechanic === "slippery") this.platformFriction = 0.99;
           else if (s.mechanic === "slow") {
@@ -100,11 +125,6 @@ class BlobPlayer {
           } else this.platformFriction = null;
 
           if (s.mechanic === "falling" && !s.falling) s.startFall();
-
-          // Carry player with moving platform
-          if (s.moveRange > 0) {
-            box.x += s.moveSpeed * s._moveDir;
-          }
         } else if (this.vy < 0) {
           box.y = s.y + s.h;
           this.vy = 0;
