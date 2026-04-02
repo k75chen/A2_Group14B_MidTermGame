@@ -274,9 +274,11 @@ function setup() {
   for (let s of spriteNames) {
     (function (name) {
       handSprites[name] = null;
+      const updatedNames = { normal: "hand_regular", fall: "Hand_fall (1)", jumpl: "Hand_jumpl (1)", jumpr: "Hand_jumpr (1)" };
+      const baseName = updatedNames[name] || ("hand_" + name);
       const paths = [
-        "assets/images/hand_" + name + ".PNG",
-        "assets/images/hand_" + name + ".png",
+        "assets/images/" + baseName + ".PNG",
+        "assets/images/" + baseName + ".png",
       ];
       function tryNext(i) {
         if (i >= paths.length) return;

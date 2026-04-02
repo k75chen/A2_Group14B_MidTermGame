@@ -135,7 +135,7 @@ class BlobPlayer {
 
   // sprites: { normal, fall, jumpl, jumpr } — p5 image objects (may be null)
   // Falls back to a simple circle so the player is always visible
-  draw(colourHex, sprites) {
+  draw(colourHex, sprites, spriteScale = 1) {
     let img = null;
     if (sprites) {
       if (this.spriteState === "fall") img = sprites.fall;
@@ -144,12 +144,12 @@ class BlobPlayer {
       else img = sprites.normal;
     }
 
-    const size = this.r * 2.5;
+    const size = this.r * 2.5 * spriteScale;
 
     if (img) {
       imageMode(CENTER);
       noTint();
-      image(img, this.x, this.y, size, size);
+      image(img, this.x, this.y + this.r - size / 2 + this.r * 0.5, size, size);
       imageMode(CORNER);
     } else {
       // Fallback: plain circle so player is always visible if sprites fail
