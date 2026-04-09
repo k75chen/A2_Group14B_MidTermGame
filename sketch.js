@@ -43,16 +43,16 @@ const POPUP_SLOTS = [
   { imgKey: "tall", imgIndex: 2, xf: 0.1, yf: 0.6 },
   { imgKey: "regular", imgIndex: 0, xf: 0.45, yf: 0.48 },
   // Level 3 dedicated: slots 12-21 (7 paper + 3 small)
-  { imgKey: "paper",   imgIndex: 0, xf: 0.85, yf: 0.40 },
-  { imgKey: "small",   imgIndex: 0, xf: 0.08, yf: 0.10 },
-  { imgKey: "paper",   imgIndex: 1, xf: 0.22, yf: 0.08 },
-  { imgKey: "paper",   imgIndex: 2, xf: 0.60, yf: 0.05 },
-  { imgKey: "small",   imgIndex: 1, xf: 0.72, yf: 0.22 },
-  { imgKey: "paper",   imgIndex: 3, xf: 0.05, yf: 0.45 },
-  { imgKey: "paper",   imgIndex: 4, xf: 0.40, yf: 0.62 },
-  { imgKey: "small",   imgIndex: 2, xf: 0.80, yf: 0.72 },
-  { imgKey: "paper",   imgIndex: 5, xf: 0.12, yf: 0.82 },
-  { imgKey: "paper",   imgIndex: 6, xf: 0.55, yf: 0.88 },
+  { imgKey: "paper", imgIndex: 0, xf: 0.85, yf: 0.4 },
+  { imgKey: "small", imgIndex: 0, xf: 0.08, yf: 0.1 },
+  { imgKey: "paper", imgIndex: 1, xf: 0.22, yf: 0.08 },
+  { imgKey: "paper", imgIndex: 2, xf: 0.6, yf: 0.05 },
+  { imgKey: "small", imgIndex: 1, xf: 0.72, yf: 0.22 },
+  { imgKey: "paper", imgIndex: 3, xf: 0.05, yf: 0.45 },
+  { imgKey: "paper", imgIndex: 4, xf: 0.4, yf: 0.62 },
+  { imgKey: "small", imgIndex: 2, xf: 0.8, yf: 0.72 },
+  { imgKey: "paper", imgIndex: 5, xf: 0.12, yf: 0.82 },
+  { imgKey: "paper", imgIndex: 6, xf: 0.55, yf: 0.88 },
 ];
 
 // Each slot gets a scale value: 0 = hidden, animates to 1 = full size
@@ -77,10 +77,10 @@ let hudArea = null; // { x, y, w, h } — set to TV inner rect for level 3, null
 
 // Inner screen bounds as fractions of the TV frame image dimensions.
 // Tune these to match tvscreen.png's actual bezel proportions.
-const TV_INNER_LEFT   = 0.10;
-const TV_INNER_TOP    = 0.08;
-const TV_INNER_RIGHT  = 0.90;
-const TV_INNER_BOTTOM = 0.90;
+const TV_INNER_LEFT = 0.1;
+const TV_INNER_TOP = 0.08;
+const TV_INNER_RIGHT = 0.9;
+const TV_INNER_BOTTOM = 0.9;
 
 // Start screen assets
 let startButtonImg = null;
@@ -96,6 +96,11 @@ let sndJump,
   sndGameover,
   sndRespawn,
   sndPopup;
+
+// Win screen assets
+let winImg1 = null;
+let winImg2 = null;
+let winImg3 = null;
 
 function preload() {
   levelData = [];
@@ -260,6 +265,35 @@ function preload() {
       sndClick = null;
     },
   );
+
+  // Win screen images
+  winImg1 = loadImage(
+    "assets/images/youmadeit.png",
+    (img) => {
+      winImg1 = img;
+    },
+    () => {
+      winImg1 = null;
+    },
+  );
+  winImg2 = loadImage(
+    "assets/images/youmadeit1.png",
+    (img) => {
+      winImg2 = img;
+    },
+    () => {
+      winImg2 = null;
+    },
+  );
+  winImg3 = loadImage(
+    "assets/images/youmadeit2.png",
+    (img) => {
+      winImg3 = img;
+    },
+    () => {
+      winImg3 = null;
+    },
+  );
 }
 
 function setup() {
@@ -298,8 +332,13 @@ function setup() {
   for (let s of spriteNames) {
     (function (name) {
       handSprites[name] = null;
-      const updatedNames = { normal: "hand_regular", fall: "Hand_fall (1)", jumpl: "Hand_jumpl (1)", jumpr: "Hand_jumpr (1)" };
-      const baseName = updatedNames[name] || ("hand_" + name);
+      const updatedNames = {
+        normal: "hand_regular",
+        fall: "Hand_fall (1)",
+        jumpl: "Hand_jumpl (1)",
+        jumpr: "Hand_jumpr (1)",
+      };
+      const baseName = updatedNames[name] || "hand_" + name;
       const paths = [
         "assets/images/" + baseName + ".PNG",
         "assets/images/" + baseName + ".png",
@@ -530,7 +569,9 @@ function draw() {
       player.vx = 0;
       player.vy = 0;
       lastGroundY = player.y;
-      cameraY = player.y - ((levelIndex === 2 && tvFrameImg) ? getTVInnerRect().h : height) * 0.6;
+      cameraY =
+        player.y -
+        (levelIndex === 2 && tvFrameImg ? getTVInnerRect().h : height) * 0.6;
       respawnFlashTimer = 90;
       if (sndRespawn) {
         sndRespawn.stop();
@@ -611,7 +652,7 @@ function draw() {
 
   // --- CAMERA ---
   if (!world) return;
-  let screenH = (levelIndex === 2 && tvFrameImg) ? getTVInnerRect().h : height;
+  let screenH = levelIndex === 2 && tvFrameImg ? getTVInnerRect().h : height;
   const target = player.y - screenH * 0.6;
   cameraY = lerp(cameraY, target, 0.1);
   cameraY = max(cameraY, 0);
@@ -657,8 +698,7 @@ function draw() {
     world.updatePlatforms(player);
     let currentBg = levelIndex === 1 ? bgImg2 : bgImg;
     world.drawWorld(currentBg);
-    if (showPlayer)
-      player.draw(world.theme.blob, cursorSprites, 1);
+    if (showPlayer) player.draw(world.theme.blob, cursorSprites, 1);
     pop();
   }
 
@@ -707,16 +747,52 @@ function drawWinScreen() {
   resetMatrix();
   fill(255, 220, 150, 200);
   rect(0, 0, width, height);
-  fill("#2C1810");
-  noStroke();
-  textAlign(CENTER, CENTER);
-  textSize(52);
-  text("YOU MADE IT", width / 2, height / 2 - 40);
-  textSize(18);
-  text("Hold yourself together a little longer.", width / 2, height / 2 + 20);
-  textSize(14);
-  fill(100);
-  text("Press ENTER to continue", width / 2, height / 2 + 65);
+
+  let imgW = min(width * 0.55, 600);
+  let gap = 24;
+
+  let h1 = winImg1 ? imgW * (winImg1.height / winImg1.width) : 80;
+  let h2 = winImg2 ? imgW * (winImg2.height / winImg2.width) : 40;
+  let h3 = winImg3 ? imgW * (winImg3.height / winImg3.width) : 40;
+
+  let totalH = h1 + h2 + h3 + gap * 2;
+  let startY = height / 2 - totalH / 2;
+  let cx = width / 2 - imgW / 2;
+
+  imageMode(CORNER);
+  noTint();
+
+  if (winImg1) image(winImg1, cx, startY, imgW, h1);
+  else {
+    fill("#2C1810");
+    noStroke();
+    textAlign(CENTER, CENTER);
+    textSize(52);
+    text("YOU MADE IT", width / 2, startY + h1 / 2);
+  }
+
+  if (winImg2) image(winImg2, cx, startY + h1 + gap, imgW, h2);
+  else {
+    fill(100);
+    noStroke();
+    textAlign(CENTER, CENTER);
+    textSize(14);
+    text("Press ENTER to continue", width / 2, startY + h1 + gap + h2 / 2);
+  }
+
+  if (winImg3) image(winImg3, cx, startY + h1 + h2 + gap * 2, imgW, h3);
+  else {
+    fill("#2C1810");
+    noStroke();
+    textAlign(CENTER, CENTER);
+    textSize(18);
+    text(
+      "Hold yourself together a little longer.",
+      width / 2,
+      startY + h1 + h2 + gap * 2 + h3 / 2,
+    );
+  }
+
   textAlign(LEFT);
   pop();
 }
@@ -980,6 +1056,17 @@ function keyPressed() {
     hearts = 4;
     loadLevel(0);
   }
+  if (key === "7") {
+    const finishPlatform =
+      world && world.platforms.find((p) => p.type === "finish");
+    if (finishPlatform) {
+      player.x = finishPlatform.x + finishPlatform.w / 2;
+      player.y = finishPlatform.y - player.r - 1;
+      hasBeenBelowFinish = true;
+      levelStarted = true;
+      cameraY = player.y - height * 0.6;
+    }
+  }
   if (key === "8") {
     hearts = 4;
     loadLevel(1);
@@ -1036,7 +1123,8 @@ function loadLevel(i) {
   visibleSlotCount = 0;
   popupSpawnCooldown = 0;
   respawnFlashTimer = 0;
-  let initScreenH = (levelIndex === 2 && tvFrameImg) ? getTVInnerRect().h : height;
+  let initScreenH =
+    levelIndex === 2 && tvFrameImg ? getTVInnerRect().h : height;
   cameraY = player.y - initScreenH * 0.6;
   if (cameraY < 0) cameraY = 0;
 
